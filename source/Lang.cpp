@@ -1,10 +1,14 @@
 #include <Lang.hpp>
 #include <cstdio>
+#include <sys/stat.h>
 #include <unordered_map>
 
 namespace lang {
 
-std::string currentLanguage = "en";
+std::string currentLanguage = "gb";
+
+static const char CONFIG_DIR[]  = "/config/spotify-switch";
+static const char LANG_PATH[]   = "/config/spotify-switch/language.txt";
 
 static std::unordered_map<std::string, std::string> strings;
 
@@ -85,6 +89,30 @@ void load() {
     content.resize(read);
 
     parse(content);
+}
+
+void loadPreference() {
+    FILE* f = fopen(LANG_PATH, "r");
+    if (!f) return;
+
+    char buf[8] = {};
+    const size_t read = fread(buf, 1, sizeof(buf) - 1, f);
+    fclose(f);
+
+    if (read > 0) currentLanguage = buf;
+}
+
+void setLanguage(const std::string& code) {
+    currentLanguage = code;
+
+    mkdir(CONFIG_DIR, 0777);
+    FILE* f = fopen(LANG_PATH, "w");
+    if (f) {
+        fputs(code.c_str(), f);
+        fclose(f);
+    }
+
+    load();
 }
 
 const std::string& get(const std::string& key) {

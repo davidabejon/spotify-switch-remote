@@ -1,6 +1,7 @@
 #include <MainApplication.hpp>
 #include <LayoutConstants.hpp>
 #include <LoginLayout.hpp>
+#include <LanguageSelectLayout.hpp>
 #include <TokenStorage.hpp>
 #include <SpotifyAuth.hpp>
 #include <Lang.hpp>
@@ -620,8 +621,6 @@ void MainLayout::SetDevice(const std::string& deviceName) {
 // =============================================================================
 
 void MainApplication::OnLoad() {
-    this->mainLayout = MainLayout::New();
-
     this->SetOnInput([&](const u64 keys_down, const u64 keys_up, const u64 keys_held,
                          const pu::ui::TouchPoint touch_pos) {
         (void)keys_up; (void)keys_held; (void)touch_pos;
@@ -660,6 +659,7 @@ void MainApplication::OnLoad() {
     const auto saved = TokenStorage::loadTokens();
     if (saved.valid) {
         this->currentTokens = saved;
+        this->mainLayout = MainLayout::New();
         this->mainLayoutActive = true;
         this->mainLayout->SetStatus(lang::get("main.session_started"));
         this->LoadLayout(this->mainLayout);
@@ -668,6 +668,17 @@ void MainApplication::OnLoad() {
         this->mainLayout->SetRefreshCallback([this]() { this->FetchAndShowPlayerState(); });
         return;
     }
+
+    // No saved session — let the user pick a display language before logging in.
+    this->languageLayout = LanguageSelectLayout::New([this](const std::string& code) {
+        this->OnLanguageSelected(code);
+    });
+    this->LoadLayout(this->languageLayout);
+}
+
+void MainApplication::OnLanguageSelected(const std::string& code) {
+    lang::setLanguage(code);
+    this->mainLayout = MainLayout::New();
 
     const std::string ip = getLocalIp();
     if (ip.empty()) {

@@ -5,6 +5,7 @@
 
 int main() {
     romfsInit();
+    lang::loadPreference();
     lang::load();
     socketInitializeDefault();
     // curl_global_init is not thread-safe — must be called from the main thread

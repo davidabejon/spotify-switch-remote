@@ -139,6 +139,7 @@ public:
 class MainApplication : public pu::ui::Application {
 private:
     MainLayout::Ref mainLayout;
+    pu::ui::Layout::Ref languageLayout;
     pu::ui::Layout::Ref loginLayout;
     std::unique_ptr<LocalServer> localServer;
     spotify::Tokens currentTokens;
@@ -158,6 +159,7 @@ private:
     void OnPlayPause();
     void OnPrev();
     void OnNext();
+    void OnLanguageSelected(const std::string& code);
 
 public:
     using Application::Application;
