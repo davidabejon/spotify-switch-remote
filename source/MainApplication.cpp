@@ -116,6 +116,23 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->tabIndicator = pu::ui::elm::Rectangle::New(0, TAB1_Y, 4, TAB_H, CLR_GREEN);
     this->Add(this->tabIndicator);
 
+    // L / R shoulder-button row — sits above the tab list, one icon at each edge
+    static constexpr s32 SHOULDER_ICON_SIZE   = 64;
+    static constexpr s32 SHOULDER_ICON_MARGIN = 20;
+    static constexpr s32 SHOULDER_ICON_Y      = TAB1_Y - SHOULDER_ICON_SIZE - 16;
+
+    auto* lTex = pu::ui::render::LoadImageFromFile("romfs:/icons/L.png");
+    this->lShoulderIcon = pu::ui::elm::Image::New(SHOULDER_ICON_MARGIN, SHOULDER_ICON_Y, lTex ? pu::sdl2::TextureHandle::New(lTex) : nullptr);
+    this->lShoulderIcon->SetWidth(SHOULDER_ICON_SIZE);
+    this->lShoulderIcon->SetHeight(SHOULDER_ICON_SIZE);
+    this->Add(this->lShoulderIcon);
+
+    auto* rTex = pu::ui::render::LoadImageFromFile("romfs:/icons/R.png");
+    this->rShoulderIcon = pu::ui::elm::Image::New(SIDEBAR_W - SHOULDER_ICON_SIZE - SHOULDER_ICON_MARGIN, SHOULDER_ICON_Y, rTex ? pu::sdl2::TextureHandle::New(rTex) : nullptr);
+    this->rShoulderIcon->SetWidth(SHOULDER_ICON_SIZE);
+    this->rShoulderIcon->SetHeight(SHOULDER_ICON_SIZE);
+    this->Add(this->rShoulderIcon);
+
     // Status line (auth state) near bottom of sidebar
     this->statusText = pu::ui::elm::TextBlock::New(12, SCREEN_H - 96, "");
     this->statusText->SetColor(CLR_GRAY);
@@ -219,6 +236,38 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
         this->Add(this->nextBtnImg);
     }
 
+    // Button hints below the controls (D-Pad Left/Right for skip, A for play/pause)
+    static constexpr s32 CTRL_HINT_SIZE = 64;
+    static constexpr s32 CTRL_HINT_Y    = CTRL_Y + CTRL_LARGE + 10;
+
+    {
+        auto* tex = pu::ui::render::LoadImageFromFile("romfs:/icons/JoyCon D-Pad Left.png");
+        this->prevHintIcon = pu::ui::elm::Image::New(
+            PREV_CX - CTRL_HINT_SIZE / 2, CTRL_HINT_Y - 2,
+            tex ? pu::sdl2::TextureHandle::New(tex) : nullptr);
+        this->prevHintIcon->SetWidth(CTRL_HINT_SIZE);
+        this->prevHintIcon->SetHeight(CTRL_HINT_SIZE);
+        this->Add(this->prevHintIcon);
+    }
+    {
+        auto* tex = pu::ui::render::LoadImageFromFile("romfs:/icons/A.png");
+        this->playPauseHintIcon = pu::ui::elm::Image::New(
+            PLAY_CX - CTRL_HINT_SIZE / 2, CTRL_HINT_Y,
+            tex ? pu::sdl2::TextureHandle::New(tex) : nullptr);
+        this->playPauseHintIcon->SetWidth(CTRL_HINT_SIZE);
+        this->playPauseHintIcon->SetHeight(CTRL_HINT_SIZE);
+        this->Add(this->playPauseHintIcon);
+    }
+    {
+        auto* tex = pu::ui::render::LoadImageFromFile("romfs:/icons/JoyCon D-Pad Right.png");
+        this->nextHintIcon = pu::ui::elm::Image::New(
+            NEXT_CX - CTRL_HINT_SIZE / 2, CTRL_HINT_Y - 2,
+            tex ? pu::sdl2::TextureHandle::New(tex) : nullptr);
+        this->nextHintIcon->SetWidth(CTRL_HINT_SIZE);
+        this->nextHintIcon->SetHeight(CTRL_HINT_SIZE);
+        this->Add(this->nextHintIcon);
+    }
+
     // ---- User tab (hidden by default) ----
 
     this->userAvatarBg = pu::ui::elm::Rectangle::New(UAVATAR_X, UAVATAR_Y, UAVATAR_SIZE, UAVATAR_SIZE, CLR_ART_BG, 10);
@@ -300,6 +349,23 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     // Horizontal separator below tab bar
     this->rightHorizSep = pu::ui::elm::Rectangle::New(RIGHT_X, ART_Y + RIGHT_TAB_H, RIGHT_W, 1, CLR_SEP);
     this->Add(this->rightHorizSep);
+
+    // ZL / ZR icons — pinned to the outer edges of the right panel's tab bar
+    static constexpr s32 ZTRIGGER_ICON_SIZE   = 64;
+    static constexpr s32 ZTRIGGER_ICON_MARGIN = 16;
+    static constexpr s32 ZTRIGGER_ICON_Y      = ART_Y + (RIGHT_TAB_H - ZTRIGGER_ICON_SIZE) / 2;
+
+    auto* zlTex = pu::ui::render::LoadImageFromFile("romfs:/icons/ZL.png");
+    this->zlShoulderIcon = pu::ui::elm::Image::New(RIGHT_X + ZTRIGGER_ICON_MARGIN, ZTRIGGER_ICON_Y, zlTex ? pu::sdl2::TextureHandle::New(zlTex) : nullptr);
+    this->zlShoulderIcon->SetWidth(ZTRIGGER_ICON_SIZE);
+    this->zlShoulderIcon->SetHeight(ZTRIGGER_ICON_SIZE);
+    this->Add(this->zlShoulderIcon);
+
+    auto* zrTex = pu::ui::render::LoadImageFromFile("romfs:/icons/ZR.png");
+    this->zrShoulderIcon = pu::ui::elm::Image::New(RIGHT_X + RIGHT_W - ZTRIGGER_ICON_SIZE - ZTRIGGER_ICON_MARGIN, ZTRIGGER_ICON_Y, zrTex ? pu::sdl2::TextureHandle::New(zrTex) : nullptr);
+    this->zrShoulderIcon->SetWidth(ZTRIGGER_ICON_SIZE);
+    this->zrShoulderIcon->SetHeight(ZTRIGGER_ICON_SIZE);
+    this->Add(this->zrShoulderIcon);
 
     // Artist tab content
     this->rightArtistImgBg = pu::ui::elm::Rectangle::New(RART_IMG_X, RART_BLOCK_Y, RART_IMG_SIZE, RART_IMG_SIZE, CLR_ART_BG, 10);
@@ -484,6 +550,9 @@ void MainLayout::SetPlayerTabVisible(bool visible) {
     this->pauseBtnImg->SetVisible(showContent && this->isPlayingState);
     this->nextBtnBg->SetVisible(showContent);
     this->nextBtnImg->SetVisible(showContent);
+    this->prevHintIcon->SetVisible(showContent);
+    this->playPauseHintIcon->SetVisible(showContent);
+    this->nextHintIcon->SetVisible(showContent);
     this->spinnerBackdrop->SetVisible(showContent && this->spinnerVisible);
     this->spinnerImg->SetVisible(showContent && this->spinnerVisible);
     this->noPlaybackText->SetVisible(showNoPlay);
@@ -509,6 +578,8 @@ void MainLayout::SetRightPanelVisible(bool visible) {
     this->rightTab2Text->SetVisible(visible);
     this->rightTabIndicator->SetVisible(visible);
     this->rightHorizSep->SetVisible(visible);
+    this->zlShoulderIcon->SetVisible(visible);
+    this->zrShoulderIcon->SetVisible(visible);
     const bool showArtist = visible && this->currentRightTab == RightTab::Artist;
     this->rightArtistImgBg->SetVisible(showArtist);
     this->rightArtistImg->SetVisible(showArtist);

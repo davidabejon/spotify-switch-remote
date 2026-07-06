@@ -21,6 +21,8 @@ private:
     pu::ui::elm::TextBlock::Ref tab1Text;
     pu::ui::elm::Rectangle::Ref tab2Bg;
     pu::ui::elm::TextBlock::Ref tab2Text;
+    pu::ui::elm::Image::Ref     lShoulderIcon;
+    pu::ui::elm::Image::Ref     rShoulderIcon;
     pu::ui::elm::TextBlock::Ref statusText;
     pu::ui::elm::TextBlock::Ref deviceText;
 
@@ -36,6 +38,9 @@ private:
     pu::ui::elm::Image::Ref     pauseBtnImg;
     pu::ui::elm::Rectangle::Ref nextBtnBg;
     pu::ui::elm::Image::Ref     nextBtnImg;
+    pu::ui::elm::Image::Ref     prevHintIcon;
+    pu::ui::elm::Image::Ref     playPauseHintIcon;
+    pu::ui::elm::Image::Ref     nextHintIcon;
     bool isPlayingState = false;
 
     // User tab
@@ -57,6 +62,8 @@ private:
     pu::ui::elm::TextBlock::Ref rightTab2Text;
     pu::ui::elm::Rectangle::Ref rightTabIndicator;
     pu::ui::elm::Rectangle::Ref rightHorizSep;
+    pu::ui::elm::Image::Ref     zlShoulderIcon;
+    pu::ui::elm::Image::Ref     zrShoulderIcon;
 
     // Artist tab content
     pu::ui::elm::Rectangle::Ref rightArtistImgBg;
