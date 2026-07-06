@@ -65,8 +65,9 @@ pu::sdl2::TextureHandle::Ref LoginLayout::buildQrTexture(const std::string& url,
 LoginLayout::LoginLayout(const std::string& authUrl,
                          const std::string& verifier,
                          LocalServer* srv,
-                         OnLoginSuccessCallback cb)
-    : Layout::Layout(), codeVerifier(verifier), onLoginSuccess(cb),
+                         OnLoginSuccessCallback cb,
+                         OnBackCallback backCb)
+    : Layout::Layout(), codeVerifier(verifier), onLoginSuccess(cb), onBack(backCb),
       server(srv), state(State::Waiting)
 {
     this->SetBackgroundColor(CLR_BG);
@@ -102,9 +103,11 @@ LoginLayout::LoginLayout(const std::string& authUrl,
     this->statusText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->statusText);
 
-    auto hint = pu::ui::elm::TextBlock::New((W / 2) - 120, 1030, lang::get("common.exit_hint"));
+    const std::string hintStr = lang::get("common.exit_hint") + "  |  " + lang::get("login.back_hint");
+    auto hint = pu::ui::elm::TextBlock::New(0, 1030, hintStr);
     hint->SetColor(CLR_GRAY);
     hint->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
+    hint->SetX((W - hint->GetWidth()) / 2);
     this->Add(hint);
 
     s32 qrSide = 0;
@@ -123,7 +126,7 @@ LoginLayout::LoginLayout(const std::string& authUrl,
             lang::get("login.scan_hint"));
         this->scanHintText->SetColor(CLR_GRAY);
         this->scanHintText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
-        this->scanHintText->SetX(qrX + (qrSide / 2) - 160);
+        this->scanHintText->SetX(qrX + (qrSide - this->scanHintText->GetWidth()) / 2);
         this->Add(this->scanHintText);
     }
 
@@ -136,8 +139,8 @@ LoginLayout::LoginLayout(const std::string& authUrl,
     // Input callback: the only place where LoadLayout is called (safe during input phase).
     this->SetOnInput([this](const u64 keys_down, const u64 keys_up,
                             const u64 keys_held, const pu::ui::TouchPoint touch_pos) {
-        (void)keys_down; (void)keys_up; (void)keys_held; (void)touch_pos;
-        this->OnInputCallback();
+        (void)keys_up; (void)keys_held; (void)touch_pos;
+        this->OnInputCallback(keys_down);
     });
 }
 
@@ -181,11 +184,18 @@ void LoginLayout::OnRenderCallback() {
 }
 
 // Called ~60 fps during the INPUT phase. Safe to call LoadLayout from here.
-void LoginLayout::OnInputCallback() {
+void LoginLayout::OnInputCallback(const u64 keys_down) {
     if (this->state == State::Succeeded) {
         debugLog("INPUT: calling onLoginSuccess");
         this->state = State::Handled;
         this->onLoginSuccess(this->resultTokens);
         debugLog("INPUT: onLoginSuccess returned");
+        return;
+    }
+
+    if ((keys_down & HidNpadButton_B) && this->state != State::Handled) {
+        debugLog("INPUT: calling onBack");
+        this->state = State::Handled;
+        this->onBack();
     }
 }

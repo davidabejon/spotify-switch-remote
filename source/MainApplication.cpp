@@ -129,10 +129,11 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->Add(this->deviceText);
 
     // Bottom hint
-    auto hint = pu::ui::elm::TextBlock::New(0, SCREEN_H - 32, lang::get("common.exit_hint"));
+    const std::string hintStr = lang::get("common.exit_hint") + "  |  " + lang::get("main.logout_hint");
+    auto hint = pu::ui::elm::TextBlock::New(0, SCREEN_H - 32, hintStr);
     hint->SetColor(CLR_HINT);
     hint->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
-    hint->SetX(SCREEN_W / 2 - 100);
+    hint->SetX((SCREEN_W - hint->GetWidth()) / 2);
     this->Add(hint);
 
     // ---- Player tab ----
@@ -632,6 +633,11 @@ void MainApplication::OnLoad() {
 
         if (!this->mainLayoutActive) return;
 
+        if (keys_down & HidNpadButton_Minus) {
+            this->OnLogout();
+            return;
+        }
+
         // L / R → sidebar tab switching
         if (keys_down & HidNpadButton_L)
             this->mainLayout->SwitchToTab(Tab::Player);
@@ -679,12 +685,15 @@ void MainApplication::OnLoad() {
 void MainApplication::OnLanguageSelected(const std::string& code) {
     lang::setLanguage(code);
     this->mainLayout = MainLayout::New();
+    this->StartLoginFlow();
+}
 
+bool MainApplication::StartLoginFlow() {
     const std::string ip = getLocalIp();
     if (ip.empty()) {
         this->mainLayout->SetStatus(lang::get("main.connect_wifi"));
         this->LoadLayout(this->mainLayout);
-        return;
+        return false;
     }
 
     const auto verifier     = spotify::generateCodeVerifier();
@@ -701,9 +710,39 @@ void MainApplication::OnLanguageSelected(const std::string& code) {
         this->localServer.get(),
         [this](const spotify::Tokens& tokens) {
             this->OnLoginSuccess(tokens);
+        },
+        [this]() {
+            this->OnLoginBack();
         });
 
     this->LoadLayout(this->loginLayout);
+    return true;
+}
+
+void MainApplication::OnLoginBack() {
+    debugLog("APP: OnLoginBack");
+    if (this->localServer) {
+        this->localServer->stop();
+        this->localServer.reset();
+    }
+    if (!this->languageLayout) {
+        this->languageLayout = LanguageSelectLayout::New([this](const std::string& code) {
+            this->OnLanguageSelected(code);
+        });
+    }
+    this->LoadLayout(this->languageLayout);
+}
+
+void MainApplication::OnLogout() {
+    debugLog("APP: OnLogout");
+    // Bail out before touching the session if we can't reach the login flow —
+    // leaves the user logged in with a "connect wifi" hint instead of stranding them.
+    if (!this->StartLoginFlow()) return;
+
+    TokenStorage::clearTokens();
+    this->currentTokens = spotify::Tokens();
+    this->mainLayoutActive = false;
+    this->userProfileFetched = false;
 }
 
 void MainApplication::OnLoginSuccess(const spotify::Tokens& tokens) {
