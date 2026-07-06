@@ -160,6 +160,9 @@ private:
     void OnPrev();
     void OnNext();
     void OnLanguageSelected(const std::string& code);
+    bool StartLoginFlow();
+    void OnLogout();
+    void OnLoginBack();
 
 public:
     using Application::Application;

@@ -70,4 +70,8 @@ spotify::Tokens loadTokens() {
     return spotify::Tokens(at, rt, ea);
 }
 
+void clearTokens() {
+    remove(TOKENS_PATH);
+}
+
 } // namespace TokenStorage

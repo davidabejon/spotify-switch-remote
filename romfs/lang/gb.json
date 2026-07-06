@@ -7,6 +7,7 @@
     "login.auth_error_format": "Authorization error: %s",
     "login.code_received": "Code received. Logging in...",
     "login.token_error": "Failed to obtain tokens. Please try again.",
+    "login.back_hint": "Press B to go back",
 
     "common.exit_hint": "Press + to exit",
 
@@ -19,6 +20,7 @@
     "main.no_playback": "No active playback",
     "main.session_started": "Session started.",
     "main.connect_wifi": "Connect the Switch to a WiFi network to log in.",
+    "main.logout_hint": "Press - to log out",
 
     "player.followers_millions_format": "%.1fM followers",
     "player.followers_thousands_format": "%.0fK followers",
