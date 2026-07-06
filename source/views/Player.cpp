@@ -3,6 +3,7 @@
 #include <SpotifyAuth.hpp>
 #include <TokenStorage.hpp>
 #include <DebugLog.hpp>
+#include <Lang.hpp>
 #include <cstdio>
 #include <cmath>
 #include <ctime>
@@ -10,18 +11,18 @@
 static std::string formatFollowers(long n) {
     char buf[32];
     if (n >= 1000000)
-        snprintf(buf, sizeof(buf), "%.1fM seguidores", (float)n / 1000000.0f);
+        snprintf(buf, sizeof(buf), lang::get("player.followers_millions_format").c_str(), (float)n / 1000000.0f);
     else if (n >= 1000)
-        snprintf(buf, sizeof(buf), "%.0fK seguidores", (float)n / 1000.0f);
+        snprintf(buf, sizeof(buf), lang::get("player.followers_thousands_format").c_str(), (float)n / 1000.0f);
     else
-        snprintf(buf, sizeof(buf), "%ld seguidores", n);
+        snprintf(buf, sizeof(buf), lang::get("player.followers_count_format").c_str(), n);
     return buf;
 }
 
 static std::string formatAlbumType(const std::string& t) {
-    if (t == "album")       return "Album";
-    if (t == "single")      return "Single";
-    if (t == "compilation") return "Recopilatorio";
+    if (t == "album")       return lang::get("player.album_type_album");
+    if (t == "single")      return lang::get("player.album_type_single");
+    if (t == "compilation") return lang::get("player.album_type_compilation");
     return t;
 }
 
@@ -35,7 +36,7 @@ void MainLayout::UpdatePlayButton(bool isPlaying) {
 }
 
 void MainLayout::SetTrack(const std::string& trackName, const std::string& artistName, bool isPlaying) {
-    this->trackText->SetText(trackName.empty() ? "Sin reproduccion activa" : trackName);
+    this->trackText->SetText(trackName.empty() ? lang::get("player.no_track") : trackName);
     this->artistText->SetText(artistName);
     this->UpdatePlayButton(isPlaying);
 }
@@ -62,7 +63,7 @@ void MainLayout::SetArtistInfo(const spotify::ArtistInfo& info) {
     this->rightArtistGenres->SetText(info.genres);
     this->rightArtistFollowers->SetText(formatFollowers(info.followers));
     char popBuf[32];
-    snprintf(popBuf, sizeof(popBuf), "Popularidad: %d / 100", info.popularity);
+    snprintf(popBuf, sizeof(popBuf), lang::get("player.popularity_format").c_str(), info.popularity);
     this->rightArtistPopularity->SetText(popBuf);
 }
 
@@ -82,12 +83,15 @@ void MainLayout::SetAlbumInfo(const spotify::AlbumInfo& info) {
     if (!info.valid) return;
     this->rightAlbumName->SetText(info.name);
     const auto year = info.releaseDate.size() >= 4 ? info.releaseDate.substr(0, 4) : info.releaseDate;
-    this->rightAlbumTypeYear->SetText(formatAlbumType(info.albumType) + " · " + year);
+    char yearBuf[192];
+    snprintf(yearBuf, sizeof(yearBuf), lang::get("player.album_type_year_format").c_str(),
+        formatAlbumType(info.albumType).c_str(), year.c_str());
+    this->rightAlbumTypeYear->SetText(yearBuf);
     char buf[128];
     if (info.label.empty())
-        snprintf(buf, sizeof(buf), "%d canciones", info.totalTracks);
+        snprintf(buf, sizeof(buf), lang::get("player.tracks_count_format").c_str(), info.totalTracks);
     else
-        snprintf(buf, sizeof(buf), "%d canciones · %s", info.totalTracks, info.label.c_str());
+        snprintf(buf, sizeof(buf), lang::get("player.tracks_count_with_label_format").c_str(), info.totalTracks, info.label.c_str());
     this->rightAlbumTracks->SetText(buf);
 }
 
@@ -119,7 +123,7 @@ void MainApplication::FetchAndShowPlayerState() {
         if (this->currentTokens.valid) TokenStorage::saveTokens(this->currentTokens);
     }
     if (!this->currentTokens.valid) {
-        this->mainLayout->SetStatus("Error al refrescar el token.");
+        this->mainLayout->SetStatus(lang::get("player.token_refresh_error"));
         this->actionsBlocked = false;
         this->mainLayout->SetLoadingSpinner(false);
         return;
@@ -144,7 +148,7 @@ void MainApplication::FetchAndShowPlayerState() {
             debugLog("APP: refresh failed — forcing re-login");
             this->currentTokens = spotify::Tokens();
             TokenStorage::saveTokens(this->currentTokens);
-            this->mainLayout->SetStatus("Sesion expirada. Reinicia la app para volver a iniciar sesion.");
+            this->mainLayout->SetStatus(lang::get("player.session_expired"));
         }
         if (!this->actionsBlocked || this->currentTrackName != this->blockedFromTrackName) {
             this->actionsBlocked = false;

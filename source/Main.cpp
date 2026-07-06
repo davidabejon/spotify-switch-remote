@@ -1,9 +1,11 @@
 #include <MainApplication.hpp>
+#include <Lang.hpp>
 #include <switch.h>
 #include <curl/curl.h>
 
 int main() {
     romfsInit();
+    lang::load();
     socketInitializeDefault();
     // curl_global_init is not thread-safe — must be called from the main thread
     // before any secondary threads start using libcurl.

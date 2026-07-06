@@ -3,6 +3,7 @@
 #include <LoginLayout.hpp>
 #include <TokenStorage.hpp>
 #include <SpotifyAuth.hpp>
+#include <Lang.hpp>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -89,7 +90,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->sidebarLogoImg->SetHeight(LOGO_SIZE);
     this->Add(this->sidebarLogoImg);
 
-    this->sidebarTitle = pu::ui::elm::TextBlock::New(TITLE_X, TITLE_Y, "Switch");
+    this->sidebarTitle = pu::ui::elm::TextBlock::New(TITLE_X, TITLE_Y, lang::get("main.sidebar_title"));
     this->sidebarTitle->SetColor(CLR_GREEN);
     this->sidebarTitle->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->sidebarTitle);
@@ -97,7 +98,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     // Tab 1 — Reproductor (selected by default)
     this->tab1Bg = pu::ui::elm::Rectangle::New(0, TAB1_Y, SIDEBAR_W, TAB_H, CLR_TAB_SEL);
     this->Add(this->tab1Bg);
-    this->tab1Text = pu::ui::elm::TextBlock::New(28, TAB1_Y + 18, "Reproductor");
+    this->tab1Text = pu::ui::elm::TextBlock::New(28, TAB1_Y + 18, lang::get("main.tab_player"));
     this->tab1Text->SetColor(CLR_WHITE);
     this->tab1Text->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->tab1Text);
@@ -105,7 +106,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     // Tab 2 — Usuario
     this->tab2Bg = pu::ui::elm::Rectangle::New(0, TAB2_Y, SIDEBAR_W, TAB_H, CLR_SIDEBAR);
     this->Add(this->tab2Bg);
-    this->tab2Text = pu::ui::elm::TextBlock::New(28, TAB2_Y + 18, "Usuario");
+    this->tab2Text = pu::ui::elm::TextBlock::New(28, TAB2_Y + 18, lang::get("main.tab_user"));
     this->tab2Text->SetColor(CLR_GRAY);
     this->tab2Text->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->tab2Text);
@@ -127,7 +128,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->Add(this->deviceText);
 
     // Bottom hint
-    auto hint = pu::ui::elm::TextBlock::New(0, SCREEN_H - 32, "Pulsa + para salir");
+    auto hint = pu::ui::elm::TextBlock::New(0, SCREEN_H - 32, lang::get("common.exit_hint"));
     hint->SetColor(CLR_HINT);
     hint->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
     hint->SetX(SCREEN_W / 2 - 100);
@@ -280,12 +281,12 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->Add(this->rightTab2Bg);
 
     // Tab texts (centered within each 410px half)
-    this->rightTab1Text = pu::ui::elm::TextBlock::New(RIGHT_X + RIGHT_TAB_W / 2 - 50, ART_Y + 13, "Artista");
+    this->rightTab1Text = pu::ui::elm::TextBlock::New(RIGHT_X + RIGHT_TAB_W / 2 - 50, ART_Y + 13, lang::get("main.tab_artist"));
     this->rightTab1Text->SetColor(CLR_WHITE);
     this->rightTab1Text->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->rightTab1Text);
 
-    this->rightTab2Text = pu::ui::elm::TextBlock::New(RIGHT_X + RIGHT_TAB_W + RIGHT_TAB_W / 2 - 28, ART_Y + 13, "Cola");
+    this->rightTab2Text = pu::ui::elm::TextBlock::New(RIGHT_X + RIGHT_TAB_W + RIGHT_TAB_W / 2 - 28, ART_Y + 13, lang::get("main.tab_queue"));
     this->rightTab2Text->SetColor(CLR_GRAY);
     this->rightTab2Text->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->rightTab2Text);
@@ -345,7 +346,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->rightAlbumImg->SetHeight(RALBUM_IMG_SIZE);
     this->Add(this->rightAlbumImg);
 
-    this->rightAlbumHeader = pu::ui::elm::TextBlock::New(RART_IMG_X, RALBUM_HDR_Y, "ALBUM");
+    this->rightAlbumHeader = pu::ui::elm::TextBlock::New(RART_IMG_X, RALBUM_HDR_Y, lang::get("main.album_header"));
     this->rightAlbumHeader->SetColor(CLR_GRAY);
     this->rightAlbumHeader->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
     this->Add(this->rightAlbumHeader);
@@ -433,7 +434,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
 
     // No-playback overlay — shown only when there is no active playback
     this->noPlaybackText = pu::ui::elm::TextBlock::New(
-        PLAYER_CX - 290, SCREEN_H / 2 - 20, "No hay reproduccion activa");
+        PLAYER_CX - 290, SCREEN_H / 2 - 20, lang::get("main.no_playback"));
     this->noPlaybackText->SetColor(CLR_GRAY);
     this->noPlaybackText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Large));
     this->noPlaybackText->SetVisible(false);
@@ -660,7 +661,7 @@ void MainApplication::OnLoad() {
     if (saved.valid) {
         this->currentTokens = saved;
         this->mainLayoutActive = true;
-        this->mainLayout->SetStatus("Sesion iniciada.");
+        this->mainLayout->SetStatus(lang::get("main.session_started"));
         this->LoadLayout(this->mainLayout);
         this->FetchUserProfile();
         this->FetchAndShowPlayerState();
@@ -670,8 +671,7 @@ void MainApplication::OnLoad() {
 
     const std::string ip = getLocalIp();
     if (ip.empty()) {
-        this->mainLayout->SetStatus(
-            "Conecta la Switch a una red WiFi para iniciar sesion.");
+        this->mainLayout->SetStatus(lang::get("main.connect_wifi"));
         this->LoadLayout(this->mainLayout);
         return;
     }
@@ -705,7 +705,7 @@ void MainApplication::OnLoginSuccess(const spotify::Tokens& tokens) {
     TokenStorage::saveTokens(tokens);
     this->mainLayoutActive = true;
     this->userProfileFetched = false;
-    this->mainLayout->SetStatus("Sesion iniciada.");
+    this->mainLayout->SetStatus(lang::get("main.session_started"));
     this->LoadLayout(this->mainLayout);
     this->FetchUserProfile();
     this->FetchAndShowPlayerState();
