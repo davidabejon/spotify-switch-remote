@@ -38,6 +38,9 @@ private:
     pu::ui::elm::Image::Ref     pauseBtnImg;
     pu::ui::elm::Rectangle::Ref nextBtnBg;
     pu::ui::elm::Image::Ref     nextBtnImg;
+    pu::ui::elm::Image::Ref     prevHintIcon;
+    pu::ui::elm::Image::Ref     playPauseHintIcon;
+    pu::ui::elm::Image::Ref     nextHintIcon;
     bool isPlayingState = false;
 
     // User tab

@@ -236,6 +236,38 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
         this->Add(this->nextBtnImg);
     }
 
+    // Button hints below the controls (D-Pad Left/Right for skip, A for play/pause)
+    static constexpr s32 CTRL_HINT_SIZE = 64;
+    static constexpr s32 CTRL_HINT_Y    = CTRL_Y + CTRL_LARGE + 10;
+
+    {
+        auto* tex = pu::ui::render::LoadImageFromFile("romfs:/icons/JoyCon D-Pad Left.png");
+        this->prevHintIcon = pu::ui::elm::Image::New(
+            PREV_CX - CTRL_HINT_SIZE / 2, CTRL_HINT_Y - 2,
+            tex ? pu::sdl2::TextureHandle::New(tex) : nullptr);
+        this->prevHintIcon->SetWidth(CTRL_HINT_SIZE);
+        this->prevHintIcon->SetHeight(CTRL_HINT_SIZE);
+        this->Add(this->prevHintIcon);
+    }
+    {
+        auto* tex = pu::ui::render::LoadImageFromFile("romfs:/icons/A.png");
+        this->playPauseHintIcon = pu::ui::elm::Image::New(
+            PLAY_CX - CTRL_HINT_SIZE / 2, CTRL_HINT_Y,
+            tex ? pu::sdl2::TextureHandle::New(tex) : nullptr);
+        this->playPauseHintIcon->SetWidth(CTRL_HINT_SIZE);
+        this->playPauseHintIcon->SetHeight(CTRL_HINT_SIZE);
+        this->Add(this->playPauseHintIcon);
+    }
+    {
+        auto* tex = pu::ui::render::LoadImageFromFile("romfs:/icons/JoyCon D-Pad Right.png");
+        this->nextHintIcon = pu::ui::elm::Image::New(
+            NEXT_CX - CTRL_HINT_SIZE / 2, CTRL_HINT_Y - 2,
+            tex ? pu::sdl2::TextureHandle::New(tex) : nullptr);
+        this->nextHintIcon->SetWidth(CTRL_HINT_SIZE);
+        this->nextHintIcon->SetHeight(CTRL_HINT_SIZE);
+        this->Add(this->nextHintIcon);
+    }
+
     // ---- User tab (hidden by default) ----
 
     this->userAvatarBg = pu::ui::elm::Rectangle::New(UAVATAR_X, UAVATAR_Y, UAVATAR_SIZE, UAVATAR_SIZE, CLR_ART_BG, 10);
@@ -518,6 +550,9 @@ void MainLayout::SetPlayerTabVisible(bool visible) {
     this->pauseBtnImg->SetVisible(showContent && this->isPlayingState);
     this->nextBtnBg->SetVisible(showContent);
     this->nextBtnImg->SetVisible(showContent);
+    this->prevHintIcon->SetVisible(showContent);
+    this->playPauseHintIcon->SetVisible(showContent);
+    this->nextHintIcon->SetVisible(showContent);
     this->spinnerBackdrop->SetVisible(showContent && this->spinnerVisible);
     this->spinnerImg->SetVisible(showContent && this->spinnerVisible);
     this->noPlaybackText->SetVisible(showNoPlay);
