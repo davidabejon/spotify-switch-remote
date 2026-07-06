@@ -2,5 +2,5 @@ blank_issues_enabled: false
 
 contact_links:
   - name: Contribution Guidelines
-    url: https://github.com/davidabejon/spotify-switch/blob/main/CONTRIBUTING.md
+    url: https://github.com/davidabejon/spotify-switch-remote/blob/main/CONTRIBUTING.md
     about: Please read the contribution guidelines before opening an issue.

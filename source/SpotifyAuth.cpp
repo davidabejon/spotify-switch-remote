@@ -12,7 +12,7 @@
 namespace spotify {
 
 static const char CLIENT_ID[]    = "2979d578384e470a9a8440f7a495f611";
-static const char REDIRECT_URI[] = "https://davidabejon.github.io/spotify-switch";
+static const char REDIRECT_URI[] = "https://davidabejon.github.io/spotify-switch-remote";
 static const char SCOPES[]       =
     "user-read-playback-state "
     "user-modify-playback-state "
