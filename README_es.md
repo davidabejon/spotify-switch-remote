@@ -55,7 +55,7 @@ Si prefieres compilarlo tú mismo:
 - Paquetes de pacman: `switch-curl`, `switch-mbedtls`, `switch-sdl2`, `switch-sdl2_image`, `switch-sdl2_ttf`, `switch-sdl2_mixer`
 
 ```sh
-git clone --recurse-submodules https://github.com/davidabejon/spotify-switch
+git clone --recurse-submodules https://github.com/davidabejon/spotify-switch-remote
 cd spotify-switch
 export DEVKITPRO=/opt/devkitpro
 make
