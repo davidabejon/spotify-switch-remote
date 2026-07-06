@@ -21,6 +21,8 @@ private:
     pu::ui::elm::TextBlock::Ref tab1Text;
     pu::ui::elm::Rectangle::Ref tab2Bg;
     pu::ui::elm::TextBlock::Ref tab2Text;
+    pu::ui::elm::Image::Ref     lShoulderIcon;
+    pu::ui::elm::Image::Ref     rShoulderIcon;
     pu::ui::elm::TextBlock::Ref statusText;
     pu::ui::elm::TextBlock::Ref deviceText;
 

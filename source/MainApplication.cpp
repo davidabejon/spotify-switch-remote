@@ -116,6 +116,23 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->tabIndicator = pu::ui::elm::Rectangle::New(0, TAB1_Y, 4, TAB_H, CLR_GREEN);
     this->Add(this->tabIndicator);
 
+    // L / R shoulder-button row — sits above the tab list, one icon at each edge
+    static constexpr s32 SHOULDER_ICON_SIZE   = 64;
+    static constexpr s32 SHOULDER_ICON_MARGIN = 20;
+    static constexpr s32 SHOULDER_ICON_Y      = TAB1_Y - SHOULDER_ICON_SIZE - 16;
+
+    auto* lTex = pu::ui::render::LoadImageFromFile("romfs:/icons/L.png");
+    this->lShoulderIcon = pu::ui::elm::Image::New(SHOULDER_ICON_MARGIN, SHOULDER_ICON_Y, lTex ? pu::sdl2::TextureHandle::New(lTex) : nullptr);
+    this->lShoulderIcon->SetWidth(SHOULDER_ICON_SIZE);
+    this->lShoulderIcon->SetHeight(SHOULDER_ICON_SIZE);
+    this->Add(this->lShoulderIcon);
+
+    auto* rTex = pu::ui::render::LoadImageFromFile("romfs:/icons/R.png");
+    this->rShoulderIcon = pu::ui::elm::Image::New(SIDEBAR_W - SHOULDER_ICON_SIZE - SHOULDER_ICON_MARGIN, SHOULDER_ICON_Y, rTex ? pu::sdl2::TextureHandle::New(rTex) : nullptr);
+    this->rShoulderIcon->SetWidth(SHOULDER_ICON_SIZE);
+    this->rShoulderIcon->SetHeight(SHOULDER_ICON_SIZE);
+    this->Add(this->rShoulderIcon);
+
     // Status line (auth state) near bottom of sidebar
     this->statusText = pu::ui::elm::TextBlock::New(12, SCREEN_H - 96, "");
     this->statusText->SetColor(CLR_GRAY);
