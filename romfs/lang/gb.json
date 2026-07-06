@@ -1,0 +1,46 @@
+{
+    "login.title": "Spotify Switch",
+    "login.step1": "Step 1 - Scan the QR code with your phone's camera:",
+    "login.step2": "Step 2 - Log in with your Spotify account.",
+    "login.waiting_auth": "Waiting for authorization...",
+    "login.scan_hint": "Scan with your phone's camera",
+    "login.auth_error_format": "Authorization error: %s",
+    "login.code_received": "Code received. Logging in...",
+    "login.token_error": "Failed to obtain tokens. Please try again.",
+    "login.back_hint": "Press B to go back",
+
+    "common.exit_hint": "Press + to exit",
+
+    "main.sidebar_title": "Switch",
+    "main.tab_player": "Player",
+    "main.tab_user": "User",
+    "main.tab_artist": "Artist",
+    "main.tab_queue": "Queue",
+    "main.album_header": "ALBUM",
+    "main.no_playback": "No active playback",
+    "main.session_started": "Session started.",
+    "main.connect_wifi": "Connect the Switch to a WiFi network to log in.",
+    "main.logout_hint": "Press - to log out",
+
+    "player.followers_millions_format": "%.1fM followers",
+    "player.followers_thousands_format": "%.0fK followers",
+    "player.followers_count_format": "%ld followers",
+    "player.album_type_album": "Album",
+    "player.album_type_single": "Single",
+    "player.album_type_compilation": "Compilation",
+    "player.no_track": "No active playback",
+    "player.popularity_format": "Popularity: %d / 100",
+    "player.album_type_year_format": "%s · %s",
+    "player.tracks_count_format": "%d tracks",
+    "player.tracks_count_with_label_format": "%d tracks · %s",
+    "player.token_refresh_error": "Failed to refresh the token.",
+    "player.session_expired": "Session expired. Restart the app to log in again.",
+
+    "user.plan_format": "Plan: %s",
+
+    "webauth.title": "Spotify Switch",
+    "webauth.success_heading": "Authorization completed",
+    "webauth.success_body": "Return to your Nintendo Switch.",
+    "webauth.error_heading": "Authorization error",
+    "webauth.error_body": "Please try again from the Switch."
+}

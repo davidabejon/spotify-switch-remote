@@ -1,4 +1,5 @@
 #include <LocalServer.hpp>
+#include <Lang.hpp>
 #include <cstring>
 #include <cstdlib>
 #include <sys/socket.h>
@@ -56,27 +57,31 @@ static bool queryParam(const char* query, const char* key,
 
 // ── HTML responses ────────────────────────────────────────────────────────────
 
-static const char SUCCESS_PAGE[] =
-    "HTTP/1.1 200 OK\r\n"
-    "Content-Type: text/html; charset=utf-8\r\n"
-    "Connection: close\r\n\r\n"
-    "<!DOCTYPE html><html><head><meta charset='utf-8'>"
-    "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-    "<title>Spotify Switch</title>"
-    "<style>body{margin:0;display:flex;align-items:center;justify-content:center;"
-    "min-height:100vh;background:#121212;color:#fff;font-family:system-ui}"
-    "h1{color:#1DB954}.card{text-align:center;padding:40px}</style></head>"
-    "<body><div class='card'><h1>Autorizacion completada</h1>"
-    "<p>Vuelve a tu Nintendo Switch.</p></div></body></html>\r\n";
+static std::string buildSuccessPage() {
+    return
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html; charset=utf-8\r\n"
+        "Connection: close\r\n\r\n"
+        "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<title>" + lang::get("webauth.title") + "</title>"
+        "<style>body{margin:0;display:flex;align-items:center;justify-content:center;"
+        "min-height:100vh;background:#121212;color:#fff;font-family:system-ui}"
+        "h1{color:#1DB954}.card{text-align:center;padding:40px}</style></head>"
+        "<body><div class='card'><h1>" + lang::get("webauth.success_heading") + "</h1>"
+        "<p>" + lang::get("webauth.success_body") + "</p></div></body></html>\r\n";
+}
 
-static const char ERROR_PAGE[] =
-    "HTTP/1.1 400 Bad Request\r\n"
-    "Content-Type: text/html; charset=utf-8\r\n"
-    "Connection: close\r\n\r\n"
-    "<!DOCTYPE html><html><body style='background:#121212;color:#fff;"
-    "font-family:system-ui;text-align:center;padding:40px'>"
-    "<h1 style='color:#e74c3c'>Error de autorizacion</h1>"
-    "<p>Intentalo de nuevo desde la Switch.</p></body></html>\r\n";
+static std::string buildErrorPage() {
+    return
+        "HTTP/1.1 400 Bad Request\r\n"
+        "Content-Type: text/html; charset=utf-8\r\n"
+        "Connection: close\r\n\r\n"
+        "<!DOCTYPE html><html><body style='background:#121212;color:#fff;"
+        "font-family:system-ui;text-align:center;padding:40px'>"
+        "<h1 style='color:#e74c3c'>" + lang::get("webauth.error_heading") + "</h1>"
+        "<p>" + lang::get("webauth.error_body") + "</p></body></html>\r\n";
+}
 
 // ── LocalServer ───────────────────────────────────────────────────────────────
 
@@ -153,9 +158,8 @@ bool LocalServer::tick(std::string& code, std::string& error) {
     }
 
     const bool ok = codeBuf[0] != '\0';
-    send(client,
-         ok ? SUCCESS_PAGE : ERROR_PAGE,
-         ok ? sizeof(SUCCESS_PAGE) - 1 : sizeof(ERROR_PAGE) - 1, 0);
+    const std::string page = ok ? buildSuccessPage() : buildErrorPage();
+    send(client, page.c_str(), page.size(), 0);
     close(client);
 
     code  = codeBuf;

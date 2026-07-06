@@ -1,8 +1,10 @@
 #include <MainApplication.hpp>
 #include <LayoutConstants.hpp>
 #include <LoginLayout.hpp>
+#include <LanguageSelectLayout.hpp>
 #include <TokenStorage.hpp>
 #include <SpotifyAuth.hpp>
+#include <Lang.hpp>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -89,7 +91,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->sidebarLogoImg->SetHeight(LOGO_SIZE);
     this->Add(this->sidebarLogoImg);
 
-    this->sidebarTitle = pu::ui::elm::TextBlock::New(TITLE_X, TITLE_Y, "Switch");
+    this->sidebarTitle = pu::ui::elm::TextBlock::New(TITLE_X, TITLE_Y, lang::get("main.sidebar_title"));
     this->sidebarTitle->SetColor(CLR_GREEN);
     this->sidebarTitle->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->sidebarTitle);
@@ -97,7 +99,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     // Tab 1 — Reproductor (selected by default)
     this->tab1Bg = pu::ui::elm::Rectangle::New(0, TAB1_Y, SIDEBAR_W, TAB_H, CLR_TAB_SEL);
     this->Add(this->tab1Bg);
-    this->tab1Text = pu::ui::elm::TextBlock::New(28, TAB1_Y + 18, "Reproductor");
+    this->tab1Text = pu::ui::elm::TextBlock::New(28, TAB1_Y + 18, lang::get("main.tab_player"));
     this->tab1Text->SetColor(CLR_WHITE);
     this->tab1Text->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->tab1Text);
@@ -105,7 +107,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     // Tab 2 — Usuario
     this->tab2Bg = pu::ui::elm::Rectangle::New(0, TAB2_Y, SIDEBAR_W, TAB_H, CLR_SIDEBAR);
     this->Add(this->tab2Bg);
-    this->tab2Text = pu::ui::elm::TextBlock::New(28, TAB2_Y + 18, "Usuario");
+    this->tab2Text = pu::ui::elm::TextBlock::New(28, TAB2_Y + 18, lang::get("main.tab_user"));
     this->tab2Text->SetColor(CLR_GRAY);
     this->tab2Text->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->tab2Text);
@@ -113,6 +115,23 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     // Green selection bar on the left edge
     this->tabIndicator = pu::ui::elm::Rectangle::New(0, TAB1_Y, 4, TAB_H, CLR_GREEN);
     this->Add(this->tabIndicator);
+
+    // L / R shoulder-button row — sits above the tab list, one icon at each edge
+    static constexpr s32 SHOULDER_ICON_SIZE   = 64;
+    static constexpr s32 SHOULDER_ICON_MARGIN = 20;
+    static constexpr s32 SHOULDER_ICON_Y      = TAB1_Y - SHOULDER_ICON_SIZE - 16;
+
+    auto* lTex = pu::ui::render::LoadImageFromFile("romfs:/icons/L.png");
+    this->lShoulderIcon = pu::ui::elm::Image::New(SHOULDER_ICON_MARGIN, SHOULDER_ICON_Y, lTex ? pu::sdl2::TextureHandle::New(lTex) : nullptr);
+    this->lShoulderIcon->SetWidth(SHOULDER_ICON_SIZE);
+    this->lShoulderIcon->SetHeight(SHOULDER_ICON_SIZE);
+    this->Add(this->lShoulderIcon);
+
+    auto* rTex = pu::ui::render::LoadImageFromFile("romfs:/icons/R.png");
+    this->rShoulderIcon = pu::ui::elm::Image::New(SIDEBAR_W - SHOULDER_ICON_SIZE - SHOULDER_ICON_MARGIN, SHOULDER_ICON_Y, rTex ? pu::sdl2::TextureHandle::New(rTex) : nullptr);
+    this->rShoulderIcon->SetWidth(SHOULDER_ICON_SIZE);
+    this->rShoulderIcon->SetHeight(SHOULDER_ICON_SIZE);
+    this->Add(this->rShoulderIcon);
 
     // Status line (auth state) near bottom of sidebar
     this->statusText = pu::ui::elm::TextBlock::New(12, SCREEN_H - 96, "");
@@ -127,10 +146,11 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->Add(this->deviceText);
 
     // Bottom hint
-    auto hint = pu::ui::elm::TextBlock::New(0, SCREEN_H - 32, "Pulsa + para salir");
+    const std::string hintStr = lang::get("common.exit_hint") + "  |  " + lang::get("main.logout_hint");
+    auto hint = pu::ui::elm::TextBlock::New(0, SCREEN_H - 32, hintStr);
     hint->SetColor(CLR_HINT);
     hint->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
-    hint->SetX(SCREEN_W / 2 - 100);
+    hint->SetX((SCREEN_W - hint->GetWidth()) / 2);
     this->Add(hint);
 
     // ---- Player tab ----
@@ -216,6 +236,38 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
         this->Add(this->nextBtnImg);
     }
 
+    // Button hints below the controls (D-Pad Left/Right for skip, A for play/pause)
+    static constexpr s32 CTRL_HINT_SIZE = 64;
+    static constexpr s32 CTRL_HINT_Y    = CTRL_Y + CTRL_LARGE + 10;
+
+    {
+        auto* tex = pu::ui::render::LoadImageFromFile("romfs:/icons/JoyCon D-Pad Left.png");
+        this->prevHintIcon = pu::ui::elm::Image::New(
+            PREV_CX - CTRL_HINT_SIZE / 2, CTRL_HINT_Y - 2,
+            tex ? pu::sdl2::TextureHandle::New(tex) : nullptr);
+        this->prevHintIcon->SetWidth(CTRL_HINT_SIZE);
+        this->prevHintIcon->SetHeight(CTRL_HINT_SIZE);
+        this->Add(this->prevHintIcon);
+    }
+    {
+        auto* tex = pu::ui::render::LoadImageFromFile("romfs:/icons/A.png");
+        this->playPauseHintIcon = pu::ui::elm::Image::New(
+            PLAY_CX - CTRL_HINT_SIZE / 2, CTRL_HINT_Y,
+            tex ? pu::sdl2::TextureHandle::New(tex) : nullptr);
+        this->playPauseHintIcon->SetWidth(CTRL_HINT_SIZE);
+        this->playPauseHintIcon->SetHeight(CTRL_HINT_SIZE);
+        this->Add(this->playPauseHintIcon);
+    }
+    {
+        auto* tex = pu::ui::render::LoadImageFromFile("romfs:/icons/JoyCon D-Pad Right.png");
+        this->nextHintIcon = pu::ui::elm::Image::New(
+            NEXT_CX - CTRL_HINT_SIZE / 2, CTRL_HINT_Y - 2,
+            tex ? pu::sdl2::TextureHandle::New(tex) : nullptr);
+        this->nextHintIcon->SetWidth(CTRL_HINT_SIZE);
+        this->nextHintIcon->SetHeight(CTRL_HINT_SIZE);
+        this->Add(this->nextHintIcon);
+    }
+
     // ---- User tab (hidden by default) ----
 
     this->userAvatarBg = pu::ui::elm::Rectangle::New(UAVATAR_X, UAVATAR_Y, UAVATAR_SIZE, UAVATAR_SIZE, CLR_ART_BG, 10);
@@ -280,12 +332,12 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->Add(this->rightTab2Bg);
 
     // Tab texts (centered within each 410px half)
-    this->rightTab1Text = pu::ui::elm::TextBlock::New(RIGHT_X + RIGHT_TAB_W / 2 - 50, ART_Y + 13, "Artista");
+    this->rightTab1Text = pu::ui::elm::TextBlock::New(RIGHT_X + RIGHT_TAB_W / 2 - 50, ART_Y + 13, lang::get("main.tab_artist"));
     this->rightTab1Text->SetColor(CLR_WHITE);
     this->rightTab1Text->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->rightTab1Text);
 
-    this->rightTab2Text = pu::ui::elm::TextBlock::New(RIGHT_X + RIGHT_TAB_W + RIGHT_TAB_W / 2 - 28, ART_Y + 13, "Cola");
+    this->rightTab2Text = pu::ui::elm::TextBlock::New(RIGHT_X + RIGHT_TAB_W + RIGHT_TAB_W / 2 - 28, ART_Y + 13, lang::get("main.tab_queue"));
     this->rightTab2Text->SetColor(CLR_GRAY);
     this->rightTab2Text->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->rightTab2Text);
@@ -297,6 +349,23 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     // Horizontal separator below tab bar
     this->rightHorizSep = pu::ui::elm::Rectangle::New(RIGHT_X, ART_Y + RIGHT_TAB_H, RIGHT_W, 1, CLR_SEP);
     this->Add(this->rightHorizSep);
+
+    // ZL / ZR icons — pinned to the outer edges of the right panel's tab bar
+    static constexpr s32 ZTRIGGER_ICON_SIZE   = 64;
+    static constexpr s32 ZTRIGGER_ICON_MARGIN = 16;
+    static constexpr s32 ZTRIGGER_ICON_Y      = ART_Y + (RIGHT_TAB_H - ZTRIGGER_ICON_SIZE) / 2;
+
+    auto* zlTex = pu::ui::render::LoadImageFromFile("romfs:/icons/ZL.png");
+    this->zlShoulderIcon = pu::ui::elm::Image::New(RIGHT_X + ZTRIGGER_ICON_MARGIN, ZTRIGGER_ICON_Y, zlTex ? pu::sdl2::TextureHandle::New(zlTex) : nullptr);
+    this->zlShoulderIcon->SetWidth(ZTRIGGER_ICON_SIZE);
+    this->zlShoulderIcon->SetHeight(ZTRIGGER_ICON_SIZE);
+    this->Add(this->zlShoulderIcon);
+
+    auto* zrTex = pu::ui::render::LoadImageFromFile("romfs:/icons/ZR.png");
+    this->zrShoulderIcon = pu::ui::elm::Image::New(RIGHT_X + RIGHT_W - ZTRIGGER_ICON_SIZE - ZTRIGGER_ICON_MARGIN, ZTRIGGER_ICON_Y, zrTex ? pu::sdl2::TextureHandle::New(zrTex) : nullptr);
+    this->zrShoulderIcon->SetWidth(ZTRIGGER_ICON_SIZE);
+    this->zrShoulderIcon->SetHeight(ZTRIGGER_ICON_SIZE);
+    this->Add(this->zrShoulderIcon);
 
     // Artist tab content
     this->rightArtistImgBg = pu::ui::elm::Rectangle::New(RART_IMG_X, RART_BLOCK_Y, RART_IMG_SIZE, RART_IMG_SIZE, CLR_ART_BG, 10);
@@ -345,7 +414,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->rightAlbumImg->SetHeight(RALBUM_IMG_SIZE);
     this->Add(this->rightAlbumImg);
 
-    this->rightAlbumHeader = pu::ui::elm::TextBlock::New(RART_IMG_X, RALBUM_HDR_Y, "ALBUM");
+    this->rightAlbumHeader = pu::ui::elm::TextBlock::New(RART_IMG_X, RALBUM_HDR_Y, lang::get("main.album_header"));
     this->rightAlbumHeader->SetColor(CLR_GRAY);
     this->rightAlbumHeader->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
     this->Add(this->rightAlbumHeader);
@@ -433,7 +502,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
 
     // No-playback overlay — shown only when there is no active playback
     this->noPlaybackText = pu::ui::elm::TextBlock::New(
-        PLAYER_CX - 290, SCREEN_H / 2 - 20, "No hay reproduccion activa");
+        PLAYER_CX - 290, SCREEN_H / 2 - 20, lang::get("main.no_playback"));
     this->noPlaybackText->SetColor(CLR_GRAY);
     this->noPlaybackText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Large));
     this->noPlaybackText->SetVisible(false);
@@ -481,6 +550,9 @@ void MainLayout::SetPlayerTabVisible(bool visible) {
     this->pauseBtnImg->SetVisible(showContent && this->isPlayingState);
     this->nextBtnBg->SetVisible(showContent);
     this->nextBtnImg->SetVisible(showContent);
+    this->prevHintIcon->SetVisible(showContent);
+    this->playPauseHintIcon->SetVisible(showContent);
+    this->nextHintIcon->SetVisible(showContent);
     this->spinnerBackdrop->SetVisible(showContent && this->spinnerVisible);
     this->spinnerImg->SetVisible(showContent && this->spinnerVisible);
     this->noPlaybackText->SetVisible(showNoPlay);
@@ -506,6 +578,8 @@ void MainLayout::SetRightPanelVisible(bool visible) {
     this->rightTab2Text->SetVisible(visible);
     this->rightTabIndicator->SetVisible(visible);
     this->rightHorizSep->SetVisible(visible);
+    this->zlShoulderIcon->SetVisible(visible);
+    this->zrShoulderIcon->SetVisible(visible);
     const bool showArtist = visible && this->currentRightTab == RightTab::Artist;
     this->rightArtistImgBg->SetVisible(showArtist);
     this->rightArtistImg->SetVisible(showArtist);
@@ -619,8 +693,6 @@ void MainLayout::SetDevice(const std::string& deviceName) {
 // =============================================================================
 
 void MainApplication::OnLoad() {
-    this->mainLayout = MainLayout::New();
-
     this->SetOnInput([&](const u64 keys_down, const u64 keys_up, const u64 keys_held,
                          const pu::ui::TouchPoint touch_pos) {
         (void)keys_up; (void)keys_held; (void)touch_pos;
@@ -631,6 +703,11 @@ void MainApplication::OnLoad() {
         }
 
         if (!this->mainLayoutActive) return;
+
+        if (keys_down & HidNpadButton_Minus) {
+            this->OnLogout();
+            return;
+        }
 
         // L / R → sidebar tab switching
         if (keys_down & HidNpadButton_L)
@@ -659,8 +736,9 @@ void MainApplication::OnLoad() {
     const auto saved = TokenStorage::loadTokens();
     if (saved.valid) {
         this->currentTokens = saved;
+        this->mainLayout = MainLayout::New();
         this->mainLayoutActive = true;
-        this->mainLayout->SetStatus("Sesion iniciada.");
+        this->mainLayout->SetStatus(lang::get("main.session_started"));
         this->LoadLayout(this->mainLayout);
         this->FetchUserProfile();
         this->FetchAndShowPlayerState();
@@ -668,12 +746,25 @@ void MainApplication::OnLoad() {
         return;
     }
 
+    // No saved session — let the user pick a display language before logging in.
+    this->languageLayout = LanguageSelectLayout::New([this](const std::string& code) {
+        this->OnLanguageSelected(code);
+    });
+    this->LoadLayout(this->languageLayout);
+}
+
+void MainApplication::OnLanguageSelected(const std::string& code) {
+    lang::setLanguage(code);
+    this->mainLayout = MainLayout::New();
+    this->StartLoginFlow();
+}
+
+bool MainApplication::StartLoginFlow() {
     const std::string ip = getLocalIp();
     if (ip.empty()) {
-        this->mainLayout->SetStatus(
-            "Conecta la Switch a una red WiFi para iniciar sesion.");
+        this->mainLayout->SetStatus(lang::get("main.connect_wifi"));
         this->LoadLayout(this->mainLayout);
-        return;
+        return false;
     }
 
     const auto verifier     = spotify::generateCodeVerifier();
@@ -690,9 +781,39 @@ void MainApplication::OnLoad() {
         this->localServer.get(),
         [this](const spotify::Tokens& tokens) {
             this->OnLoginSuccess(tokens);
+        },
+        [this]() {
+            this->OnLoginBack();
         });
 
     this->LoadLayout(this->loginLayout);
+    return true;
+}
+
+void MainApplication::OnLoginBack() {
+    debugLog("APP: OnLoginBack");
+    if (this->localServer) {
+        this->localServer->stop();
+        this->localServer.reset();
+    }
+    if (!this->languageLayout) {
+        this->languageLayout = LanguageSelectLayout::New([this](const std::string& code) {
+            this->OnLanguageSelected(code);
+        });
+    }
+    this->LoadLayout(this->languageLayout);
+}
+
+void MainApplication::OnLogout() {
+    debugLog("APP: OnLogout");
+    // Bail out before touching the session if we can't reach the login flow —
+    // leaves the user logged in with a "connect wifi" hint instead of stranding them.
+    if (!this->StartLoginFlow()) return;
+
+    TokenStorage::clearTokens();
+    this->currentTokens = spotify::Tokens();
+    this->mainLayoutActive = false;
+    this->userProfileFetched = false;
 }
 
 void MainApplication::OnLoginSuccess(const spotify::Tokens& tokens) {
@@ -705,7 +826,7 @@ void MainApplication::OnLoginSuccess(const spotify::Tokens& tokens) {
     TokenStorage::saveTokens(tokens);
     this->mainLayoutActive = true;
     this->userProfileFetched = false;
-    this->mainLayout->SetStatus("Sesion iniciada.");
+    this->mainLayout->SetStatus(lang::get("main.session_started"));
     this->LoadLayout(this->mainLayout);
     this->FetchUserProfile();
     this->FetchAndShowPlayerState();

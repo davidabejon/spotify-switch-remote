@@ -1,0 +1,46 @@
+{
+    "login.title": "Spotify Switch",
+    "login.step1": "Paso 1 - Escanea el codigo QR con la camara del movil:",
+    "login.step2": "Paso 2 - Inicia sesion con tu cuenta de Spotify.",
+    "login.waiting_auth": "Esperando autorizacion...",
+    "login.scan_hint": "Escanea con la camara del movil",
+    "login.auth_error_format": "Error de autorizacion: %s",
+    "login.code_received": "Codigo recibido. Iniciando sesion...",
+    "login.token_error": "Error al obtener tokens. Intentalo de nuevo.",
+    "login.back_hint": "Pulsa B para volver",
+
+    "common.exit_hint": "Pulsa + para salir",
+
+    "main.sidebar_title": "Switch",
+    "main.tab_player": "Reproductor",
+    "main.tab_user": "Usuario",
+    "main.tab_artist": "Artista",
+    "main.tab_queue": "Cola",
+    "main.album_header": "ALBUM",
+    "main.no_playback": "No hay reproduccion activa",
+    "main.session_started": "Sesion iniciada.",
+    "main.connect_wifi": "Conecta la Switch a una red WiFi para iniciar sesion.",
+    "main.logout_hint": "Pulsa - para cerrar sesion",
+
+    "player.followers_millions_format": "%.1fM seguidores",
+    "player.followers_thousands_format": "%.0fK seguidores",
+    "player.followers_count_format": "%ld seguidores",
+    "player.album_type_album": "Album",
+    "player.album_type_single": "Single",
+    "player.album_type_compilation": "Recopilatorio",
+    "player.no_track": "Sin reproduccion activa",
+    "player.popularity_format": "Popularidad: %d / 100",
+    "player.album_type_year_format": "%s · %s",
+    "player.tracks_count_format": "%d canciones",
+    "player.tracks_count_with_label_format": "%d canciones · %s",
+    "player.token_refresh_error": "Error al refrescar el token.",
+    "player.session_expired": "Sesion expirada. Reinicia la app para volver a iniciar sesion.",
+
+    "user.plan_format": "Plan: %s",
+
+    "webauth.title": "Spotify Switch",
+    "webauth.success_heading": "Autorizacion completada",
+    "webauth.success_body": "Vuelve a tu Nintendo Switch.",
+    "webauth.error_heading": "Error de autorizacion",
+    "webauth.error_body": "Intentalo de nuevo desde la Switch."
+}
