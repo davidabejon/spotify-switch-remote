@@ -318,6 +318,23 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->rightHorizSep = pu::ui::elm::Rectangle::New(RIGHT_X, ART_Y + RIGHT_TAB_H, RIGHT_W, 1, CLR_SEP);
     this->Add(this->rightHorizSep);
 
+    // ZL / ZR icons — pinned to the outer edges of the right panel's tab bar
+    static constexpr s32 ZTRIGGER_ICON_SIZE   = 64;
+    static constexpr s32 ZTRIGGER_ICON_MARGIN = 16;
+    static constexpr s32 ZTRIGGER_ICON_Y      = ART_Y + (RIGHT_TAB_H - ZTRIGGER_ICON_SIZE) / 2;
+
+    auto* zlTex = pu::ui::render::LoadImageFromFile("romfs:/icons/ZL.png");
+    this->zlShoulderIcon = pu::ui::elm::Image::New(RIGHT_X + ZTRIGGER_ICON_MARGIN, ZTRIGGER_ICON_Y, zlTex ? pu::sdl2::TextureHandle::New(zlTex) : nullptr);
+    this->zlShoulderIcon->SetWidth(ZTRIGGER_ICON_SIZE);
+    this->zlShoulderIcon->SetHeight(ZTRIGGER_ICON_SIZE);
+    this->Add(this->zlShoulderIcon);
+
+    auto* zrTex = pu::ui::render::LoadImageFromFile("romfs:/icons/ZR.png");
+    this->zrShoulderIcon = pu::ui::elm::Image::New(RIGHT_X + RIGHT_W - ZTRIGGER_ICON_SIZE - ZTRIGGER_ICON_MARGIN, ZTRIGGER_ICON_Y, zrTex ? pu::sdl2::TextureHandle::New(zrTex) : nullptr);
+    this->zrShoulderIcon->SetWidth(ZTRIGGER_ICON_SIZE);
+    this->zrShoulderIcon->SetHeight(ZTRIGGER_ICON_SIZE);
+    this->Add(this->zrShoulderIcon);
+
     // Artist tab content
     this->rightArtistImgBg = pu::ui::elm::Rectangle::New(RART_IMG_X, RART_BLOCK_Y, RART_IMG_SIZE, RART_IMG_SIZE, CLR_ART_BG, 10);
     this->Add(this->rightArtistImgBg);
@@ -526,6 +543,8 @@ void MainLayout::SetRightPanelVisible(bool visible) {
     this->rightTab2Text->SetVisible(visible);
     this->rightTabIndicator->SetVisible(visible);
     this->rightHorizSep->SetVisible(visible);
+    this->zlShoulderIcon->SetVisible(visible);
+    this->zrShoulderIcon->SetVisible(visible);
     const bool showArtist = visible && this->currentRightTab == RightTab::Artist;
     this->rightArtistImgBg->SetVisible(showArtist);
     this->rightArtistImg->SetVisible(showArtist);

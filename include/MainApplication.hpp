@@ -59,6 +59,8 @@ private:
     pu::ui::elm::TextBlock::Ref rightTab2Text;
     pu::ui::elm::Rectangle::Ref rightTabIndicator;
     pu::ui::elm::Rectangle::Ref rightHorizSep;
+    pu::ui::elm::Image::Ref     zlShoulderIcon;
+    pu::ui::elm::Image::Ref     zrShoulderIcon;
 
     // Artist tab content
     pu::ui::elm::Rectangle::Ref rightArtistImgBg;
