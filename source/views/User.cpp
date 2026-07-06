@@ -2,6 +2,7 @@
 #include <LayoutConstants.hpp>
 #include <SpotifyAuth.hpp>
 #include <DebugLog.hpp>
+#include <Lang.hpp>
 #include <cstdio>
 
 static std::string capitalizeFirst(const std::string& s) {
@@ -14,11 +15,11 @@ static std::string capitalizeFirst(const std::string& s) {
 static std::string formatFollowers(long n) {
     char buf[32];
     if (n >= 1000000)
-        snprintf(buf, sizeof(buf), "%.1fM seguidores", (float)n / 1000000.0f);
+        snprintf(buf, sizeof(buf), lang::get("player.followers_millions_format").c_str(), (float)n / 1000000.0f);
     else if (n >= 1000)
-        snprintf(buf, sizeof(buf), "%.0fK seguidores", (float)n / 1000.0f);
+        snprintf(buf, sizeof(buf), lang::get("player.followers_thousands_format").c_str(), (float)n / 1000.0f);
     else
-        snprintf(buf, sizeof(buf), "%ld seguidores", n);
+        snprintf(buf, sizeof(buf), lang::get("player.followers_count_format").c_str(), n);
     return buf;
 }
 
@@ -34,7 +35,13 @@ void MainLayout::SetUserProfile(const spotify::UserProfile& profile) {
     this->userFlagImg->SetX(UINFO_X + this->userNameText->GetWidth() + 12);
     this->userFlagImg->SetY(UNAME_Y);
     this->userEmailText->SetText(profile.email.empty() ? "" : profile.email);
-    this->userPlanText->SetText(profile.product.empty() ? "" : "Plan: " + capitalizeFirst(profile.product));
+    if (profile.product.empty()) {
+        this->userPlanText->SetText("");
+    } else {
+        char buf[128];
+        snprintf(buf, sizeof(buf), lang::get("user.plan_format").c_str(), capitalizeFirst(profile.product).c_str());
+        this->userPlanText->SetText(buf);
+    }
     this->userFollowersText->SetText(formatFollowers(profile.followers));
 }
 

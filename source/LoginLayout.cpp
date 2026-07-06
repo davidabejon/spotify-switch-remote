@@ -1,10 +1,12 @@
 #include <LoginLayout.hpp>
 #include <SpotifyAuth.hpp>
 #include <DebugLog.hpp>
+#include <Lang.hpp>
 #include <qrcodegen.h>
 #include <switch.h>
 #include <SDL2/SDL.h>
 #include <algorithm>
+#include <cstdio>
 
 static constexpr s32 W       = 1920;
 static constexpr s32 H       = 1080;
@@ -69,14 +71,14 @@ LoginLayout::LoginLayout(const std::string& authUrl,
 {
     this->SetBackgroundColor(CLR_BG);
 
-    this->titleText = pu::ui::elm::TextBlock::New(0, 50, "Spotify Switch");
+    this->titleText = pu::ui::elm::TextBlock::New(0, 50, lang::get("login.title"));
     this->titleText->SetColor(CLR_GREEN);
     this->titleText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Large));
     this->titleText->SetX((W / 2) - 180);
     this->Add(this->titleText);
 
     this->step1Text = pu::ui::elm::TextBlock::New(MARGIN, 190,
-        "Paso 1 - Escanea el codigo QR con la camara del movil:");
+        lang::get("login.step1"));
     this->step1Text->SetColor(CLR_WHITE);
     this->step1Text->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->step1Text);
@@ -90,17 +92,17 @@ LoginLayout::LoginLayout(const std::string& authUrl,
     this->Add(this->urlText);
 
     this->step2Text = pu::ui::elm::TextBlock::New(MARGIN, 330,
-        "Paso 2 - Inicia sesion con tu cuenta de Spotify.");
+        lang::get("login.step2"));
     this->step2Text->SetColor(CLR_WHITE);
     this->step2Text->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->step2Text);
 
-    this->statusText = pu::ui::elm::TextBlock::New(MARGIN, 410, "Esperando autorizacion...");
+    this->statusText = pu::ui::elm::TextBlock::New(MARGIN, 410, lang::get("login.waiting_auth"));
     this->statusText->SetColor(CLR_GRAY);
     this->statusText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->statusText);
 
-    auto hint = pu::ui::elm::TextBlock::New((W / 2) - 120, 1030, "Pulsa + para salir");
+    auto hint = pu::ui::elm::TextBlock::New((W / 2) - 120, 1030, lang::get("common.exit_hint"));
     hint->SetColor(CLR_GRAY);
     hint->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
     this->Add(hint);
@@ -118,7 +120,7 @@ LoginLayout::LoginLayout(const std::string& authUrl,
         this->Add(this->qrImage);
 
         this->scanHintText = pu::ui::elm::TextBlock::New(0, qrY + qrSide + 16,
-            "Escanea con la camara del movil");
+            lang::get("login.scan_hint"));
         this->scanHintText->SetColor(CLR_GRAY);
         this->scanHintText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
         this->scanHintText->SetX(qrX + (qrSide / 2) - 160);
@@ -152,14 +154,16 @@ void LoginLayout::OnRenderCallback() {
     debugLog("RENDER: code received");
 
     if (!error.empty()) {
-        this->statusText->SetText("Error de autorizacion: " + error);
+        char buf[512];
+        snprintf(buf, sizeof(buf), lang::get("login.auth_error_format").c_str(), error.c_str());
+        this->statusText->SetText(buf);
         this->statusText->SetColor(CLR_RED);
         this->state = State::Failed;
         return;
     }
     if (code.empty()) return;
 
-    this->statusText->SetText("Codigo recibido. Iniciando sesion...");
+    this->statusText->SetText(lang::get("login.code_received"));
     this->statusText->SetColor(CLR_GREEN);
 
     // Blocking token exchange — renders freeze for ~1 s, which is acceptable.
@@ -171,7 +175,7 @@ void LoginLayout::OnRenderCallback() {
         this->state = State::Succeeded;
     } else {
         this->state = State::Failed;
-        this->statusText->SetText("Error al obtener tokens. Intentalo de nuevo.");
+        this->statusText->SetText(lang::get("login.token_error"));
         this->statusText->SetColor(CLR_RED);
     }
 }
