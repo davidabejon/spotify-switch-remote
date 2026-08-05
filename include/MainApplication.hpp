@@ -206,6 +206,10 @@ private:
     std::string currentQueueUrls[5];
     bool pendingInitialMainFetch = false;
     time_t pendingInitialMainFetchAfter = 0;
+    int dirUpHoldFrames = 0;
+    int dirDownHoldFrames = 0;
+    int dirLeftHoldFrames = 0;
+    int dirRightHoldFrames = 0;
 
     void FetchAndShowPlayerState();
     void FetchUserProfile();

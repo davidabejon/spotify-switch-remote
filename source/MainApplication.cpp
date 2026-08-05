@@ -68,6 +68,30 @@ static std::string encodeIp(const std::string& ip) {
 static constexpr int SETTINGS_LANG_COUNT = 2;
 static const char* const SETTINGS_LANG_CODES[SETTINGS_LANG_COUNT] = { "es", "gb" };
 
+// D-Pad and left-stick tilt share the same directional handling; holding either one
+// past DIR_REPEAT_DELAY_FRAMES starts auto-repeating every DIR_REPEAT_INTERVAL_FRAMES
+// (frame counts assume the ~60fps cadence OnInput is already driven at elsewhere, e.g. spinnerAngle/barPhase).
+static constexpr u64 DIR_UP_MASK    = HidNpadButton_Up    | HidNpadButton_StickLUp;
+static constexpr u64 DIR_DOWN_MASK  = HidNpadButton_Down  | HidNpadButton_StickLDown;
+static constexpr u64 DIR_LEFT_MASK  = HidNpadButton_Left  | HidNpadButton_StickLLeft;
+static constexpr u64 DIR_RIGHT_MASK = HidNpadButton_Right | HidNpadButton_StickLRight;
+static constexpr int DIR_REPEAT_DELAY_FRAMES    = 18;
+static constexpr int DIR_REPEAT_INTERVAL_FRAMES = 6;
+
+static bool ProcessDirectionRepeat(int& heldFrames, bool pressed, bool held) {
+    if (pressed) {
+        heldFrames = 0;
+        return true;
+    }
+    if (!held) {
+        heldFrames = 0;
+        return false;
+    }
+    heldFrames++;
+    if (heldFrames < DIR_REPEAT_DELAY_FRAMES) return false;
+    return (heldFrames - DIR_REPEAT_DELAY_FRAMES) % DIR_REPEAT_INTERVAL_FRAMES == 0;
+}
+
 static Tab PrevTab(const Tab t) {
     if (t == Tab::Player) return Tab::Settings;
     if (t == Tab::User) return Tab::Player;
@@ -940,7 +964,7 @@ void MainLayout::SetDevice(const std::string& deviceName) {
 void MainApplication::OnLoad() {
     this->SetOnInput([&](const u64 keys_down, const u64 keys_up, const u64 keys_held,
                          const pu::ui::TouchPoint touch_pos) {
-        (void)keys_up; (void)keys_held; (void)touch_pos;
+        (void)keys_up; (void)touch_pos;
 
         if (keys_down & HidNpadButton_Plus) {
             this->Close();
@@ -948,6 +972,13 @@ void MainApplication::OnLoad() {
         }
 
         if (!this->mainLayoutActive) return;
+
+        // D-Pad and left-stick tilt share the same directional handling: a quick tap fires once,
+        // holding either one past a short delay starts auto-repeating it.
+        const bool dUp    = ProcessDirectionRepeat(this->dirUpHoldFrames,    keys_down & DIR_UP_MASK,    keys_held & DIR_UP_MASK);
+        const bool dDown  = ProcessDirectionRepeat(this->dirDownHoldFrames,  keys_down & DIR_DOWN_MASK,  keys_held & DIR_DOWN_MASK);
+        const bool dLeft  = ProcessDirectionRepeat(this->dirLeftHoldFrames,  keys_down & DIR_LEFT_MASK,  keys_held & DIR_LEFT_MASK);
+        const bool dRight = ProcessDirectionRepeat(this->dirRightHoldFrames, keys_down & DIR_RIGHT_MASK, keys_held & DIR_RIGHT_MASK);
 
         // L / R → sidebar tab cycling
         if (keys_down & HidNpadButton_L)
@@ -957,15 +988,15 @@ void MainApplication::OnLoad() {
 
         // Settings focus navigation
         if (this->mainLayout->GetCurrentTab() == Tab::Settings) {
-            if (keys_down & HidNpadButton_Up)
+            if (dUp)
                 this->mainLayout->MoveSettingsFocus(-1);
-            if (keys_down & HidNpadButton_Down)
+            if (dDown)
                 this->mainLayout->MoveSettingsFocus(1);
 
             if (this->mainLayout->GetSettingsFocus() == SettingsFocus::Language) {
-                if (keys_down & HidNpadButton_Left)
+                if (dLeft)
                     this->mainLayout->CycleSettingsLanguage(-1);
-                if (keys_down & HidNpadButton_Right)
+                if (dRight)
                     this->mainLayout->CycleSettingsLanguage(1);
             }
 
@@ -981,9 +1012,9 @@ void MainApplication::OnLoad() {
 
         // Player focus navigation and action
         if (this->mainLayout->GetCurrentTab() == Tab::Player && !this->actionsBlocked) {
-            if (keys_down & HidNpadButton_Left)
+            if (dLeft)
                 this->mainLayout->MovePlayerFocus(-1);
-            if (keys_down & HidNpadButton_Right)
+            if (dRight)
                 this->mainLayout->MovePlayerFocus(1);
             if (keys_down & HidNpadButton_A) {
                 if (this->mainLayout->GetPlayerFocus() == PlayerFocus::Prev)
