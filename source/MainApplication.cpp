@@ -28,6 +28,7 @@ static const pu::ui::Color CLR_BTN     {  55,  55,  55, 255 };
 static const pu::ui::Color CLR_SEP        {  50,  50,  50, 255 };
 static const pu::ui::Color CLR_SPINNER_BG {   0,   0,   0, 160 };
 static const pu::ui::Color CLR_FOCUS_DARK {  75,  75,  75, 255 };
+static const pu::ui::Color CLR_RED_DANGER { 200,  56,  60, 255 };
 
 // --- Local IP helper ---
 
@@ -170,7 +171,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->Add(this->deviceText);
 
     // Bottom hint
-    const std::string hintStr = lang::get("common.exit_hint") + "  |  " + lang::get("main.logout_hint");
+    const std::string hintStr = lang::get("common.exit_hint");
     auto hint = pu::ui::elm::TextBlock::New(0, SCREEN_H - 32, hintStr);
     hint->SetColor(CLR_HINT);
     hint->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
@@ -355,6 +356,20 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->settingsApplyText->SetVisible(false);
     this->Add(this->settingsApplyText);
 
+    this->settingsLogoutOutline = pu::ui::elm::Rectangle::New(CONTENT_X + 116, ART_Y + 386, 328, 80, CLR_GREEN, 10);
+    this->settingsLogoutOutline->SetVisible(false);
+    this->Add(this->settingsLogoutOutline);
+
+    this->settingsLogoutBg = pu::ui::elm::Rectangle::New(CONTENT_X + 120, ART_Y + 390, 320, 72, CLR_RED_DANGER, 8);
+    this->settingsLogoutBg->SetVisible(false);
+    this->Add(this->settingsLogoutBg);
+
+    this->settingsLogoutText = pu::ui::elm::TextBlock::New(CONTENT_X + 145, ART_Y + 412, lang::get("settings.logout"));
+    this->settingsLogoutText->SetColor(CLR_WHITE);
+    this->settingsLogoutText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
+    this->settingsLogoutText->SetVisible(false);
+    this->Add(this->settingsLogoutText);
+
     this->settingsHelpText = pu::ui::elm::TextBlock::New(CONTENT_X + 120, ART_Y + 98, lang::get("settings.help"));
     this->settingsHelpText->SetColor(CLR_HINT);
     this->settingsHelpText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
@@ -386,7 +401,7 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
         this->Add(this->settingsHelpRightIcon);
     }
 
-    this->settingsSavedText = pu::ui::elm::TextBlock::New(CONTENT_X + 120, ART_Y + 438, "");
+    this->settingsSavedText = pu::ui::elm::TextBlock::New(CONTENT_X + 120, ART_Y + 532, "");
     this->settingsSavedText->SetColor(CLR_GREEN);
     this->settingsSavedText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
     this->settingsSavedText->SetVisible(false);
@@ -684,6 +699,9 @@ void MainLayout::SetSettingsTabVisible(bool visible) {
     this->settingsApplyOutline->SetVisible(visible && this->settingsFocus == SettingsFocus::Apply);
     this->settingsApplyBg->SetVisible(visible);
     this->settingsApplyText->SetVisible(visible);
+    this->settingsLogoutOutline->SetVisible(visible && this->settingsFocus == SettingsFocus::Logout);
+    this->settingsLogoutBg->SetVisible(visible);
+    this->settingsLogoutText->SetVisible(visible);
     this->settingsHelpText->SetVisible(visible);
     this->settingsHelpLeftIcon->SetVisible(visible);
     this->settingsHelpRightIcon->SetVisible(visible);
@@ -729,16 +747,21 @@ void MainLayout::MovePlayerFocus(const int delta) {
 void MainLayout::UpdateSettingsFocusStyles() {
     const bool showContent = (this->currentTab == Tab::Settings);
     this->settingsSelectBg->SetColor(this->settingsFocus == SettingsFocus::Language ? CLR_FOCUS_DARK : CLR_TAB_SEL);
-    this->settingsApplyBg->SetColor(CLR_BTN);
+    this->settingsApplyBg->SetColor(this->settingsFocus == SettingsFocus::Apply ? CLR_FOCUS_DARK : CLR_BTN);
+    this->settingsLogoutBg->SetColor(CLR_RED_DANGER);
     this->settingsSelectOutline->SetVisible(showContent && this->settingsFocus == SettingsFocus::Language);
     this->settingsApplyOutline->SetVisible(showContent && this->settingsFocus == SettingsFocus::Apply);
+    this->settingsLogoutOutline->SetVisible(showContent && this->settingsFocus == SettingsFocus::Logout);
 }
 
 void MainLayout::MoveSettingsFocus(const int delta) {
     if (delta == 0) return;
-    const int index = (this->settingsFocus == SettingsFocus::Language) ? 0 : 1;
-    const int next = (index + delta + 2) % 2;
-    this->settingsFocus = (next == 0) ? SettingsFocus::Language : SettingsFocus::Apply;
+    static constexpr int FOCUS_COUNT = 3;
+    int index = 0;
+    if (this->settingsFocus == SettingsFocus::Apply) index = 1;
+    else if (this->settingsFocus == SettingsFocus::Logout) index = 2;
+    const int next = (index + delta + FOCUS_COUNT) % FOCUS_COUNT;
+    this->settingsFocus = (next == 0) ? SettingsFocus::Language : (next == 1 ? SettingsFocus::Apply : SettingsFocus::Logout);
     this->UpdateSettingsFocusStyles();
 }
 
@@ -902,11 +925,6 @@ void MainApplication::OnLoad() {
 
         if (!this->mainLayoutActive) return;
 
-        if (keys_down & HidNpadButton_Minus) {
-            this->OnLogout();
-            return;
-        }
-
         // L / R → sidebar tab cycling
         if (keys_down & HidNpadButton_L)
             this->mainLayout->SwitchToTab(PrevTab(this->mainLayout->GetCurrentTab()));
@@ -930,6 +948,8 @@ void MainApplication::OnLoad() {
             if (keys_down & HidNpadButton_A) {
                 if (this->mainLayout->GetSettingsFocus() == SettingsFocus::Apply)
                     this->ApplyLanguageFromSettings();
+                else if (this->mainLayout->GetSettingsFocus() == SettingsFocus::Logout)
+                    this->OnLogout();
                 else
                     this->mainLayout->SetSettingsFeedback(lang::get("settings.press_apply"));
             }

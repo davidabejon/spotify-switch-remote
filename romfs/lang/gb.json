@@ -21,7 +21,6 @@
     "main.no_playback": "No active playback",
     "main.session_started": "Session started.",
     "main.connect_wifi": "Connect the Switch to a WiFi network to log in.",
-    "main.logout_hint": "Press - to log out",
 
     "player.followers_millions_format": "%.1fM followers",
     "player.followers_thousands_format": "%.0fK followers",
@@ -44,6 +43,7 @@
     "settings.option_es": "Spanish",
     "settings.option_gb": "English",
     "settings.apply": "Save",
+    "settings.logout": "Log out",
     "settings.help": "Change language",
     "settings.press_apply": "Move focus to Save and press A.",
     "settings.saved": "Applied changes.",

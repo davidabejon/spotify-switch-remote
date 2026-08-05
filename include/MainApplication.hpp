@@ -10,7 +10,7 @@
 enum class Tab      { Player, User, Settings };
 enum class RightTab  { Artist, Queue };
 enum class PlayerFocus { Prev, PlayPause, Next };
-enum class SettingsFocus { Language, Apply };
+enum class SettingsFocus { Language, Apply, Logout };
 
 class MainLayout : public pu::ui::Layout {
 private:
@@ -65,6 +65,9 @@ private:
     pu::ui::elm::Rectangle::Ref settingsApplyOutline;
     pu::ui::elm::Rectangle::Ref settingsApplyBg;
     pu::ui::elm::TextBlock::Ref settingsApplyText;
+    pu::ui::elm::Rectangle::Ref settingsLogoutOutline;
+    pu::ui::elm::Rectangle::Ref settingsLogoutBg;
+    pu::ui::elm::TextBlock::Ref settingsLogoutText;
     pu::ui::elm::TextBlock::Ref settingsHelpText;
     pu::ui::elm::Image::Ref     settingsHelpLeftIcon;
     pu::ui::elm::Image::Ref     settingsHelpRightIcon;

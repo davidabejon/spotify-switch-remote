@@ -21,7 +21,6 @@
     "main.no_playback": "No hay reproduccion activa",
     "main.session_started": "Sesion iniciada.",
     "main.connect_wifi": "Conecta la Switch a una red WiFi para iniciar sesion.",
-    "main.logout_hint": "Pulsa - para cerrar sesion",
 
     "player.followers_millions_format": "%.1fM seguidores",
     "player.followers_thousands_format": "%.0fK seguidores",
@@ -44,6 +43,7 @@
     "settings.option_es": "Espanol",
     "settings.option_gb": "Ingles",
     "settings.apply": "Guardar",
+    "settings.logout": "Cerrar sesion",
     "settings.help": "Cambiar idioma",
     "settings.press_apply": "Mueve el foco a Guardar y pulsa A.",
     "settings.saved": "Cambios aplicados.",
