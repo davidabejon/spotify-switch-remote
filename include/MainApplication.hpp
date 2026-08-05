@@ -141,6 +141,23 @@ private:
     std::function<void()> refreshCallback;
     time_t lastRefresh = 0;
 
+    // Whether controller button hints (L/R, ZL/ZR, D-Pad icons) are currently shown;
+    // hidden while the last interaction was touch, shown again once a controller input is used.
+    bool controllerHintsEnabled = true;
+
+    // Touch hover state for tappable buttons (mirrors pu::ui::elm::Button's press/release tracking)
+    bool prevTapHovering = false;
+    bool playPauseTapHovering = false;
+    bool nextTapHovering = false;
+    bool tab1TapHovering = false;
+    bool tab2TapHovering = false;
+    bool tab3TapHovering = false;
+    bool rightTab1TapHovering = false;
+    bool rightTab2TapHovering = false;
+    bool settingsSelectTapHovering = false;
+    bool settingsApplyTapHovering = false;
+    bool settingsLogoutTapHovering = false;
+
     void OnRenderCallback();
     void SetPlayerTabVisible(bool visible);
     void SetUserTabVisible(bool visible);
@@ -149,6 +166,7 @@ private:
     void UpdateSettingsSelectText();
     void UpdatePlayerFocusStyles();
     void UpdateSettingsFocusStyles();
+    static bool UpdateTapZone(bool& hovering, const pu::ui::TouchPoint& touch, s32 x, s32 y, s32 w, s32 h);
 
 public:
     MainLayout();
@@ -174,9 +192,11 @@ public:
     bool GetPlaybackActive() const { return this->playbackActive; }
     void MovePlayerFocus(int delta);
     PlayerFocus GetPlayerFocus() const { return this->playerFocus; }
+    void SetPlayerFocus(PlayerFocus focus);
     void CycleSettingsLanguage(int delta);
     void MoveSettingsFocus(int delta);
     SettingsFocus GetSettingsFocus() const { return this->settingsFocus; }
+    void SetSettingsFocus(SettingsFocus focus);
     std::string GetSelectedLanguageCode() const;
     void SetSettingsFeedback(const std::string& text);
     void SwitchRightTab(RightTab tab);
@@ -185,6 +205,18 @@ public:
     void TriggerRefreshNow();
     void SetLoadingSpinner(bool visible);
     void SetBlockingLoading(bool visible);
+    void SetControllerHintsVisible(bool visible);
+
+    // Touch tap detection — each returns true once, on the frame the touch is released
+    // after having been pressed down inside that button's bounds.
+    bool TapPrev(const pu::ui::TouchPoint& touch);
+    bool TapPlayPause(const pu::ui::TouchPoint& touch);
+    bool TapNext(const pu::ui::TouchPoint& touch);
+    bool TapSidebarTab(const pu::ui::TouchPoint& touch, Tab tab);
+    bool TapRightTab(const pu::ui::TouchPoint& touch, RightTab tab);
+    bool TapSettingsSelect(const pu::ui::TouchPoint& touch);
+    bool TapSettingsApply(const pu::ui::TouchPoint& touch);
+    bool TapSettingsLogout(const pu::ui::TouchPoint& touch);
 };
 
 class MainApplication : public pu::ui::Application {

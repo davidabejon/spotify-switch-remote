@@ -748,12 +748,20 @@ void MainLayout::SetSettingsTabVisible(bool visible) {
     this->settingsLogoutOutline->SetVisible(visible && this->settingsFocus == SettingsFocus::Logout);
     this->settingsLogoutBg->SetVisible(visible);
     this->settingsLogoutText->SetVisible(visible);
-    this->settingsHelpText->SetVisible(visible);
-    this->settingsHelpLeftIcon->SetVisible(visible);
-    this->settingsHelpRightIcon->SetVisible(visible);
+    this->settingsHelpText->SetVisible(visible && this->controllerHintsEnabled);
+    this->settingsHelpLeftIcon->SetVisible(visible && this->controllerHintsEnabled);
+    this->settingsHelpRightIcon->SetVisible(visible && this->controllerHintsEnabled);
     this->settingsSavedText->SetVisible(visible);
     this->settingsAppInfoText->SetVisible(visible);
     this->settingsAttributionText->SetVisible(visible);
+}
+
+void MainLayout::SetControllerHintsVisible(const bool visible) {
+    this->controllerHintsEnabled = visible;
+    this->lShoulderIcon->SetVisible(visible);
+    this->rShoulderIcon->SetVisible(visible);
+    this->SetRightPanelVisible(this->currentTab == Tab::Player && this->playbackActive);
+    this->SetSettingsTabVisible(this->currentTab == Tab::Settings);
 }
 
 void MainLayout::UpdateSettingsSelectText() {
@@ -792,6 +800,11 @@ void MainLayout::MovePlayerFocus(const int delta) {
     this->UpdatePlayerFocusStyles();
 }
 
+void MainLayout::SetPlayerFocus(const PlayerFocus focus) {
+    this->playerFocus = focus;
+    this->UpdatePlayerFocusStyles();
+}
+
 void MainLayout::UpdateSettingsFocusStyles() {
     const bool showContent = (this->currentTab == Tab::Settings);
     this->settingsSelectBg->SetColor(this->settingsFocus == SettingsFocus::Language ? CLR_FOCUS_DARK : CLR_TAB_SEL);
@@ -813,12 +826,88 @@ void MainLayout::MoveSettingsFocus(const int delta) {
     this->UpdateSettingsFocusStyles();
 }
 
+void MainLayout::SetSettingsFocus(const SettingsFocus focus) {
+    this->settingsFocus = focus;
+    this->UpdateSettingsFocusStyles();
+}
+
 std::string MainLayout::GetSelectedLanguageCode() const {
     return SETTINGS_LANG_CODES[this->settingsLangIndex];
 }
 
 void MainLayout::SetSettingsFeedback(const std::string& text) {
     this->settingsSavedText->SetText(text);
+}
+
+bool MainLayout::UpdateTapZone(bool& hovering, const pu::ui::TouchPoint& touch, const s32 x, const s32 y, const s32 w, const s32 h) {
+    if (hovering) {
+        if (touch.IsEmpty()) {
+            hovering = false;
+            return true;
+        }
+        return false;
+    }
+    if (touch.HitsRegion(x, y, w, h)) {
+        hovering = true;
+    }
+    return false;
+}
+
+bool MainLayout::TapPrev(const pu::ui::TouchPoint& touch) {
+    return this->UpdateTapZone(this->prevTapHovering, touch,
+        this->prevBtnBg->GetX(), this->prevBtnBg->GetY(), this->prevBtnBg->GetWidth(), this->prevBtnBg->GetHeight());
+}
+
+bool MainLayout::TapPlayPause(const pu::ui::TouchPoint& touch) {
+    return this->UpdateTapZone(this->playPauseTapHovering, touch,
+        this->playBtnBg->GetX(), this->playBtnBg->GetY(), this->playBtnBg->GetWidth(), this->playBtnBg->GetHeight());
+}
+
+bool MainLayout::TapNext(const pu::ui::TouchPoint& touch) {
+    return this->UpdateTapZone(this->nextTapHovering, touch,
+        this->nextBtnBg->GetX(), this->nextBtnBg->GetY(), this->nextBtnBg->GetWidth(), this->nextBtnBg->GetHeight());
+}
+
+bool MainLayout::TapSidebarTab(const pu::ui::TouchPoint& touch, const Tab tab) {
+    switch (tab) {
+        case Tab::Player:
+            return this->UpdateTapZone(this->tab1TapHovering, touch,
+                this->tab1Bg->GetX(), this->tab1Bg->GetY(), this->tab1Bg->GetWidth(), this->tab1Bg->GetHeight());
+        case Tab::User:
+            return this->UpdateTapZone(this->tab2TapHovering, touch,
+                this->tab2Bg->GetX(), this->tab2Bg->GetY(), this->tab2Bg->GetWidth(), this->tab2Bg->GetHeight());
+        case Tab::Settings:
+            return this->UpdateTapZone(this->tab3TapHovering, touch,
+                this->tab3Bg->GetX(), this->tab3Bg->GetY(), this->tab3Bg->GetWidth(), this->tab3Bg->GetHeight());
+    }
+    return false;
+}
+
+bool MainLayout::TapRightTab(const pu::ui::TouchPoint& touch, const RightTab tab) {
+    switch (tab) {
+        case RightTab::Artist:
+            return this->UpdateTapZone(this->rightTab1TapHovering, touch,
+                this->rightTab1Bg->GetX(), this->rightTab1Bg->GetY(), this->rightTab1Bg->GetWidth(), this->rightTab1Bg->GetHeight());
+        case RightTab::Queue:
+            return this->UpdateTapZone(this->rightTab2TapHovering, touch,
+                this->rightTab2Bg->GetX(), this->rightTab2Bg->GetY(), this->rightTab2Bg->GetWidth(), this->rightTab2Bg->GetHeight());
+    }
+    return false;
+}
+
+bool MainLayout::TapSettingsSelect(const pu::ui::TouchPoint& touch) {
+    return this->UpdateTapZone(this->settingsSelectTapHovering, touch,
+        this->settingsSelectBg->GetX(), this->settingsSelectBg->GetY(), this->settingsSelectBg->GetWidth(), this->settingsSelectBg->GetHeight());
+}
+
+bool MainLayout::TapSettingsApply(const pu::ui::TouchPoint& touch) {
+    return this->UpdateTapZone(this->settingsApplyTapHovering, touch,
+        this->settingsApplyBg->GetX(), this->settingsApplyBg->GetY(), this->settingsApplyBg->GetWidth(), this->settingsApplyBg->GetHeight());
+}
+
+bool MainLayout::TapSettingsLogout(const pu::ui::TouchPoint& touch) {
+    return this->UpdateTapZone(this->settingsLogoutTapHovering, touch,
+        this->settingsLogoutBg->GetX(), this->settingsLogoutBg->GetY(), this->settingsLogoutBg->GetWidth(), this->settingsLogoutBg->GetHeight());
 }
 
 void MainLayout::SetRightPanelVisible(bool visible) {
@@ -831,8 +920,8 @@ void MainLayout::SetRightPanelVisible(bool visible) {
     this->rightTab2Text->SetVisible(visible);
     this->rightTabIndicator->SetVisible(visible);
     this->rightHorizSep->SetVisible(visible);
-    this->zlShoulderIcon->SetVisible(visible);
-    this->zrShoulderIcon->SetVisible(visible);
+    this->zlShoulderIcon->SetVisible(visible && this->controllerHintsEnabled);
+    this->zrShoulderIcon->SetVisible(visible && this->controllerHintsEnabled);
     const bool showArtist = visible && this->currentRightTab == RightTab::Artist;
     this->rightArtistImgBg->SetVisible(showArtist);
     this->rightArtistImg->SetVisible(showArtist);
@@ -964,7 +1053,7 @@ void MainLayout::SetDevice(const std::string& deviceName) {
 void MainApplication::OnLoad() {
     this->SetOnInput([&](const u64 keys_down, const u64 keys_up, const u64 keys_held,
                          const pu::ui::TouchPoint touch_pos) {
-        (void)keys_up; (void)touch_pos;
+        (void)keys_up;
 
         if (keys_down & HidNpadButton_Plus) {
             this->Close();
@@ -972,6 +1061,12 @@ void MainApplication::OnLoad() {
         }
 
         if (!this->mainLayoutActive) return;
+
+        // Controller button hints (L/R, ZL/ZR, D-Pad icons) track whichever input method was used last
+        if (!touch_pos.IsEmpty())
+            this->mainLayout->SetControllerHintsVisible(false);
+        else if ((keys_down != 0) || (keys_held != 0))
+            this->mainLayout->SetControllerHintsVisible(true);
 
         // D-Pad and left-stick tilt share the same directional handling: a quick tap fires once,
         // holding either one past a short delay starts auto-repeating it.
@@ -985,6 +1080,14 @@ void MainApplication::OnLoad() {
             this->mainLayout->SwitchToTab(PrevTab(this->mainLayout->GetCurrentTab()));
         if (keys_down & HidNpadButton_R)
             this->mainLayout->SwitchToTab(NextTab(this->mainLayout->GetCurrentTab()));
+
+        // Sidebar tab bar is touch-tappable regardless of the current tab
+        if (this->mainLayout->TapSidebarTab(touch_pos, Tab::Player))
+            this->mainLayout->SwitchToTab(Tab::Player);
+        if (this->mainLayout->TapSidebarTab(touch_pos, Tab::User))
+            this->mainLayout->SwitchToTab(Tab::User);
+        if (this->mainLayout->TapSidebarTab(touch_pos, Tab::Settings))
+            this->mainLayout->SwitchToTab(Tab::Settings);
 
         // Settings focus navigation
         if (this->mainLayout->GetCurrentTab() == Tab::Settings) {
@@ -1008,6 +1111,19 @@ void MainApplication::OnLoad() {
                 else
                     this->mainLayout->SetSettingsFeedback(lang::get("settings.press_apply"));
             }
+
+            if (this->mainLayout->TapSettingsSelect(touch_pos)) {
+                this->mainLayout->SetSettingsFocus(SettingsFocus::Language);
+                this->mainLayout->CycleSettingsLanguage(1);
+            }
+            if (this->mainLayout->TapSettingsApply(touch_pos)) {
+                this->mainLayout->SetSettingsFocus(SettingsFocus::Apply);
+                this->ApplyLanguageFromSettings();
+            }
+            if (this->mainLayout->TapSettingsLogout(touch_pos)) {
+                this->mainLayout->SetSettingsFocus(SettingsFocus::Logout);
+                this->OnLogout();
+            }
         }
 
         // Player focus navigation and action
@@ -1024,6 +1140,19 @@ void MainApplication::OnLoad() {
                 else
                     this->OnNext();
             }
+
+            if (this->mainLayout->TapPrev(touch_pos)) {
+                this->mainLayout->SetPlayerFocus(PlayerFocus::Prev);
+                this->OnPrev();
+            }
+            if (this->mainLayout->TapPlayPause(touch_pos)) {
+                this->mainLayout->SetPlayerFocus(PlayerFocus::PlayPause);
+                this->OnPlayPause();
+            }
+            if (this->mainLayout->TapNext(touch_pos)) {
+                this->mainLayout->SetPlayerFocus(PlayerFocus::Next);
+                this->OnNext();
+            }
         }
 
         // ZL / ZR → right panel tab switching (only in Player tab with active playback)
@@ -1031,6 +1160,10 @@ void MainApplication::OnLoad() {
             if (keys_down & HidNpadButton_ZL)
                 this->mainLayout->SwitchRightTab(RightTab::Artist);
             if (keys_down & HidNpadButton_ZR)
+                this->mainLayout->SwitchRightTab(RightTab::Queue);
+            if (this->mainLayout->TapRightTab(touch_pos, RightTab::Artist))
+                this->mainLayout->SwitchRightTab(RightTab::Artist);
+            if (this->mainLayout->TapRightTab(touch_pos, RightTab::Queue))
                 this->mainLayout->SwitchRightTab(RightTab::Queue);
         }
     });
