@@ -14,6 +14,7 @@
     "main.sidebar_title": "Switch",
     "main.tab_player": "Reproductor",
     "main.tab_user": "Usuario",
+    "main.tab_settings": "Ajustes",
     "main.tab_artist": "Artista",
     "main.tab_queue": "Cola",
     "main.album_header": "ALBUM",
@@ -37,6 +38,16 @@
     "player.session_expired": "Sesion expirada. Reinicia la app para volver a iniciar sesion.",
 
     "user.plan_format": "Plan: %s",
+
+    "settings.title": "Ajustes",
+    "settings.language_label": "Idioma",
+    "settings.option_es": "Espanol",
+    "settings.option_gb": "Ingles",
+    "settings.apply": "Guardar",
+    "settings.help": "Cambiar idioma",
+    "settings.press_apply": "Mueve el foco a Guardar y pulsa A.",
+    "settings.saved": "Cambios aplicados.",
+    "settings.no_change": "Ese idioma ya esta seleccionado.",
 
     "webauth.title": "Spotify Switch",
     "webauth.success_heading": "Autorizacion completada",

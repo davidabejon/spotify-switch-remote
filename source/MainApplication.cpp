@@ -27,6 +27,7 @@ static const pu::ui::Color CLR_ART_BG  {  40,  40,  40, 255 };
 static const pu::ui::Color CLR_BTN     {  55,  55,  55, 255 };
 static const pu::ui::Color CLR_SEP        {  50,  50,  50, 255 };
 static const pu::ui::Color CLR_SPINNER_BG {   0,   0,   0, 160 };
+static const pu::ui::Color CLR_FOCUS_DARK {  75,  75,  75, 255 };
 
 // --- Local IP helper ---
 
@@ -61,6 +62,21 @@ static std::string encodeIp(const std::string& ip) {
     std::string out = ip;
     for (char& c : out) if (c == '.') c = '_';
     return out;
+}
+
+static constexpr int SETTINGS_LANG_COUNT = 2;
+static const char* const SETTINGS_LANG_CODES[SETTINGS_LANG_COUNT] = { "es", "gb" };
+
+static Tab PrevTab(const Tab t) {
+    if (t == Tab::Player) return Tab::Settings;
+    if (t == Tab::User) return Tab::Player;
+    return Tab::User;
+}
+
+static Tab NextTab(const Tab t) {
+    if (t == Tab::Player) return Tab::User;
+    if (t == Tab::User) return Tab::Settings;
+    return Tab::Player;
 }
 
 // =============================================================================
@@ -111,6 +127,14 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->tab2Text->SetColor(CLR_GRAY);
     this->tab2Text->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
     this->Add(this->tab2Text);
+
+    // Tab 3 — Settings
+    this->tab3Bg = pu::ui::elm::Rectangle::New(0, TAB3_Y, SIDEBAR_W, TAB_H, CLR_SIDEBAR);
+    this->Add(this->tab3Bg);
+    this->tab3Text = pu::ui::elm::TextBlock::New(28, TAB3_Y + 18, lang::get("main.tab_settings"));
+    this->tab3Text->SetColor(CLR_GRAY);
+    this->tab3Text->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
+    this->Add(this->tab3Text);
 
     // Green selection bar on the left edge
     this->tabIndicator = pu::ui::elm::Rectangle::New(0, TAB1_Y, 4, TAB_H, CLR_GREEN);
@@ -184,6 +208,9 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->Add(this->artistText);
 
     // Prev button (circle, centered at PREV_CX)
+    this->prevBtnOutline = pu::ui::elm::Rectangle::New(
+        PREV_CX - (CTRL_SMALL + 8) / 2, CTRL_Y - 4, CTRL_SMALL + 8, CTRL_SMALL + 8, CLR_GREEN, (CTRL_SMALL + 8) / 2);
+    this->Add(this->prevBtnOutline);
     this->prevBtnBg = pu::ui::elm::Rectangle::New(
         PREV_CX - CTRL_SMALL / 2, CTRL_Y, CTRL_SMALL, CTRL_SMALL, CLR_BTN, CTRL_SMALL / 2);
     this->Add(this->prevBtnBg);
@@ -198,9 +225,13 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     }
 
     // Play/Pause button (larger circle, centered at PLAY_CX)
+    this->playBtnOutline = pu::ui::elm::Rectangle::New(
+        PLAY_CX - (CTRL_LARGE + 8) / 2, CTRL_Y - (CTRL_LARGE - CTRL_SMALL) / 2 - 4,
+        CTRL_LARGE + 8, CTRL_LARGE + 8, CLR_GREEN, (CTRL_LARGE + 8) / 2);
+    this->Add(this->playBtnOutline);
     this->playBtnBg = pu::ui::elm::Rectangle::New(
         PLAY_CX - CTRL_LARGE / 2, CTRL_Y - (CTRL_LARGE - CTRL_SMALL) / 2,
-        CTRL_LARGE, CTRL_LARGE, CLR_GREEN, CTRL_LARGE / 2);
+        CTRL_LARGE, CTRL_LARGE, CLR_BTN, CTRL_LARGE / 2);
     this->Add(this->playBtnBg);
     {
         auto* tex = pu::ui::render::LoadImageFromFile("romfs:/player-play.png");
@@ -223,6 +254,9 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     }
 
     // Next button (circle, centered at NEXT_CX)
+    this->nextBtnOutline = pu::ui::elm::Rectangle::New(
+        NEXT_CX - (CTRL_SMALL + 8) / 2, CTRL_Y - 4, CTRL_SMALL + 8, CTRL_SMALL + 8, CLR_GREEN, (CTRL_SMALL + 8) / 2);
+    this->Add(this->nextBtnOutline);
     this->nextBtnBg = pu::ui::elm::Rectangle::New(
         NEXT_CX - CTRL_SMALL / 2, CTRL_Y, CTRL_SMALL, CTRL_SMALL, CLR_BTN, CTRL_SMALL / 2);
     this->Add(this->nextBtnBg);
@@ -234,38 +268,6 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
         this->nextBtnImg->SetWidth(CTRL_ICON_SM);
         this->nextBtnImg->SetHeight(CTRL_ICON_SM);
         this->Add(this->nextBtnImg);
-    }
-
-    // Button hints below the controls (D-Pad Left/Right for skip, A for play/pause)
-    static constexpr s32 CTRL_HINT_SIZE = 64;
-    static constexpr s32 CTRL_HINT_Y    = CTRL_Y + CTRL_LARGE + 10;
-
-    {
-        auto* tex = pu::ui::render::LoadImageFromFile("romfs:/icons/JoyCon D-Pad Left.png");
-        this->prevHintIcon = pu::ui::elm::Image::New(
-            PREV_CX - CTRL_HINT_SIZE / 2, CTRL_HINT_Y - 2,
-            tex ? pu::sdl2::TextureHandle::New(tex) : nullptr);
-        this->prevHintIcon->SetWidth(CTRL_HINT_SIZE);
-        this->prevHintIcon->SetHeight(CTRL_HINT_SIZE);
-        this->Add(this->prevHintIcon);
-    }
-    {
-        auto* tex = pu::ui::render::LoadImageFromFile("romfs:/icons/A.png");
-        this->playPauseHintIcon = pu::ui::elm::Image::New(
-            PLAY_CX - CTRL_HINT_SIZE / 2, CTRL_HINT_Y,
-            tex ? pu::sdl2::TextureHandle::New(tex) : nullptr);
-        this->playPauseHintIcon->SetWidth(CTRL_HINT_SIZE);
-        this->playPauseHintIcon->SetHeight(CTRL_HINT_SIZE);
-        this->Add(this->playPauseHintIcon);
-    }
-    {
-        auto* tex = pu::ui::render::LoadImageFromFile("romfs:/icons/JoyCon D-Pad Right.png");
-        this->nextHintIcon = pu::ui::elm::Image::New(
-            NEXT_CX - CTRL_HINT_SIZE / 2, CTRL_HINT_Y - 2,
-            tex ? pu::sdl2::TextureHandle::New(tex) : nullptr);
-        this->nextHintIcon->SetWidth(CTRL_HINT_SIZE);
-        this->nextHintIcon->SetHeight(CTRL_HINT_SIZE);
-        this->Add(this->nextHintIcon);
     }
 
     // ---- User tab (hidden by default) ----
@@ -310,6 +312,92 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->userFollowersText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
     this->userFollowersText->SetVisible(false);
     this->Add(this->userFollowersText);
+
+    // ---- Settings tab (hidden by default) ----
+
+    this->settingsTitleText = pu::ui::elm::TextBlock::New(CONTENT_X + 120, ART_Y + 40, lang::get("settings.title"));
+    this->settingsTitleText->SetColor(CLR_WHITE);
+    this->settingsTitleText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Large));
+    this->settingsTitleText->SetVisible(false);
+    this->Add(this->settingsTitleText);
+
+    this->settingsLanguageLabel = pu::ui::elm::TextBlock::New(CONTENT_X + 120, ART_Y + 150, lang::get("settings.language_label"));
+    this->settingsLanguageLabel->SetColor(CLR_GRAY);
+    this->settingsLanguageLabel->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
+    this->settingsLanguageLabel->SetVisible(false);
+    this->Add(this->settingsLanguageLabel);
+
+    this->settingsSelectOutline = pu::ui::elm::Rectangle::New(CONTENT_X + 116, ART_Y + 192, 568, 86, CLR_GREEN, 10);
+    this->settingsSelectOutline->SetVisible(false);
+    this->Add(this->settingsSelectOutline);
+
+    this->settingsSelectBg = pu::ui::elm::Rectangle::New(CONTENT_X + 120, ART_Y + 196, 560, 78, CLR_TAB_SEL, 8);
+    this->settingsSelectBg->SetVisible(false);
+    this->Add(this->settingsSelectBg);
+
+    this->settingsSelectText = pu::ui::elm::TextBlock::New(CONTENT_X + 144, ART_Y + 218, "");
+    this->settingsSelectText->SetColor(CLR_WHITE);
+    this->settingsSelectText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
+    this->settingsSelectText->SetVisible(false);
+    this->Add(this->settingsSelectText);
+
+    this->settingsApplyOutline = pu::ui::elm::Rectangle::New(CONTENT_X + 116, ART_Y + 292, 328, 80, CLR_GREEN, 10);
+    this->settingsApplyOutline->SetVisible(false);
+    this->Add(this->settingsApplyOutline);
+
+    this->settingsApplyBg = pu::ui::elm::Rectangle::New(CONTENT_X + 120, ART_Y + 296, 320, 72, CLR_BTN, 8);
+    this->settingsApplyBg->SetVisible(false);
+    this->Add(this->settingsApplyBg);
+
+    this->settingsApplyText = pu::ui::elm::TextBlock::New(CONTENT_X + 145, ART_Y + 318, lang::get("settings.apply"));
+    this->settingsApplyText->SetColor(CLR_WHITE);
+    this->settingsApplyText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Medium));
+    this->settingsApplyText->SetVisible(false);
+    this->Add(this->settingsApplyText);
+
+    this->settingsHelpText = pu::ui::elm::TextBlock::New(CONTENT_X + 120, ART_Y + 98, lang::get("settings.help"));
+    this->settingsHelpText->SetColor(CLR_HINT);
+    this->settingsHelpText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
+    this->settingsHelpText->SetVisible(false);
+    this->Add(this->settingsHelpText);
+
+    {
+        static constexpr s32 SETTINGS_HINT_ICON_SIZE = 28;
+        const s32 iconY = ART_Y + 92;
+        const s32 rightIconX = CONTENT_X + 120 + this->settingsHelpText->GetWidth() + 60;
+        const s32 leftIconX = rightIconX - SETTINGS_HINT_ICON_SIZE - 10;
+
+        auto* leftTex = pu::ui::render::LoadImageFromFile("romfs:/icons/JoyCon D-Pad Left.png");
+        this->settingsHelpLeftIcon = pu::ui::elm::Image::New(
+            leftIconX, iconY,
+            leftTex ? pu::sdl2::TextureHandle::New(leftTex) : nullptr);
+        this->settingsHelpLeftIcon->SetWidth(SETTINGS_HINT_ICON_SIZE);
+        this->settingsHelpLeftIcon->SetHeight(SETTINGS_HINT_ICON_SIZE);
+        this->settingsHelpLeftIcon->SetVisible(false);
+        this->Add(this->settingsHelpLeftIcon);
+
+        auto* rightTex = pu::ui::render::LoadImageFromFile("romfs:/icons/JoyCon D-Pad Right.png");
+        this->settingsHelpRightIcon = pu::ui::elm::Image::New(
+            rightIconX, iconY,
+            rightTex ? pu::sdl2::TextureHandle::New(rightTex) : nullptr);
+        this->settingsHelpRightIcon->SetWidth(SETTINGS_HINT_ICON_SIZE);
+        this->settingsHelpRightIcon->SetHeight(SETTINGS_HINT_ICON_SIZE);
+        this->settingsHelpRightIcon->SetVisible(false);
+        this->Add(this->settingsHelpRightIcon);
+    }
+
+    this->settingsSavedText = pu::ui::elm::TextBlock::New(CONTENT_X + 120, ART_Y + 438, "");
+    this->settingsSavedText->SetColor(CLR_GREEN);
+    this->settingsSavedText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
+    this->settingsSavedText->SetVisible(false);
+    this->Add(this->settingsSavedText);
+
+    this->settingsLangIndex = (lang::currentLanguage == "es") ? 0 : 1;
+    this->playerFocus = PlayerFocus::PlayPause;
+    this->settingsFocus = SettingsFocus::Language;
+    this->UpdateSettingsSelectText();
+    this->UpdatePlayerFocusStyles();
+    this->UpdateSettingsFocusStyles();
 
     // ---- Right panel ----
 
@@ -498,6 +586,22 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
         this->spinnerImg->SetHeight(SPINNER_SIZE);
         this->spinnerImg->SetVisible(false);
         this->Add(this->spinnerImg);
+
+        // Full-screen blocking overlay uses the same spinner asset.
+        this->blockingOverlayBg = pu::ui::elm::Rectangle::New(0, 0, SCREEN_W, SCREEN_H, CLR_SPINNER_BG);
+        this->blockingOverlayBg->SetVisible(false);
+        this->Add(this->blockingOverlayBg);
+
+        auto* overlaySpinTex = pu::ui::render::LoadImageFromFile("romfs:/loading.png");
+
+        this->blockingOverlaySpinner = pu::ui::elm::Image::New(
+            CONTENT_CX - SPINNER_SIZE / 2,
+            SCREEN_H / 2 - SPINNER_SIZE / 2,
+            overlaySpinTex ? pu::sdl2::TextureHandle::New(overlaySpinTex) : nullptr);
+        this->blockingOverlaySpinner->SetWidth(SPINNER_SIZE);
+        this->blockingOverlaySpinner->SetHeight(SPINNER_SIZE);
+        this->blockingOverlaySpinner->SetVisible(false);
+        this->Add(this->blockingOverlaySpinner);
     }
 
     // No-playback overlay — shown only when there is no active playback
@@ -513,10 +617,13 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
 
     // Spinner rotation — runs every frame, no-op when hidden
     this->AddRenderCallback([this]() {
-        if (!this->spinnerVisible) return;
+        if (!this->spinnerVisible && !this->blockingOverlayVisible) return;
         this->spinnerAngle += 4.0f;
         if (this->spinnerAngle >= 360.0f) this->spinnerAngle -= 360.0f;
-        this->spinnerImg->SetRotationAngle(this->spinnerAngle);
+        if (this->spinnerVisible)
+            this->spinnerImg->SetRotationAngle(this->spinnerAngle);
+        if (this->blockingOverlayVisible)
+            this->blockingOverlaySpinner->SetRotationAngle(this->spinnerAngle);
     });
 
     // Audio bars animation — sine wave, 120° offset between bars
@@ -550,9 +657,9 @@ void MainLayout::SetPlayerTabVisible(bool visible) {
     this->pauseBtnImg->SetVisible(showContent && this->isPlayingState);
     this->nextBtnBg->SetVisible(showContent);
     this->nextBtnImg->SetVisible(showContent);
-    this->prevHintIcon->SetVisible(showContent);
-    this->playPauseHintIcon->SetVisible(showContent);
-    this->nextHintIcon->SetVisible(showContent);
+    this->prevBtnOutline->SetVisible(showContent && this->playerFocus == PlayerFocus::Prev);
+    this->playBtnOutline->SetVisible(showContent && this->playerFocus == PlayerFocus::PlayPause);
+    this->nextBtnOutline->SetVisible(showContent && this->playerFocus == PlayerFocus::Next);
     this->spinnerBackdrop->SetVisible(showContent && this->spinnerVisible);
     this->spinnerImg->SetVisible(showContent && this->spinnerVisible);
     this->noPlaybackText->SetVisible(showNoPlay);
@@ -566,6 +673,81 @@ void MainLayout::SetUserTabVisible(bool visible) {
     this->userEmailText->SetVisible(visible);
     this->userPlanText->SetVisible(visible);
     this->userFollowersText->SetVisible(visible);
+}
+
+void MainLayout::SetSettingsTabVisible(bool visible) {
+    this->settingsTitleText->SetVisible(visible);
+    this->settingsLanguageLabel->SetVisible(visible);
+    this->settingsSelectOutline->SetVisible(visible && this->settingsFocus == SettingsFocus::Language);
+    this->settingsSelectBg->SetVisible(visible);
+    this->settingsSelectText->SetVisible(visible);
+    this->settingsApplyOutline->SetVisible(visible && this->settingsFocus == SettingsFocus::Apply);
+    this->settingsApplyBg->SetVisible(visible);
+    this->settingsApplyText->SetVisible(visible);
+    this->settingsHelpText->SetVisible(visible);
+    this->settingsHelpLeftIcon->SetVisible(visible);
+    this->settingsHelpRightIcon->SetVisible(visible);
+    this->settingsSavedText->SetVisible(visible);
+}
+
+void MainLayout::UpdateSettingsSelectText() {
+    const std::string label =
+        (this->settingsLangIndex == 0)
+            ? lang::get("settings.option_es")
+            : lang::get("settings.option_gb");
+    this->settingsSelectText->SetText("< " + label + " >");
+}
+
+void MainLayout::CycleSettingsLanguage(const int delta) {
+    if (delta == 0) return;
+    const int next = (this->settingsLangIndex + delta + SETTINGS_LANG_COUNT) % SETTINGS_LANG_COUNT;
+    this->settingsLangIndex = next;
+    this->UpdateSettingsSelectText();
+    this->settingsSavedText->SetText("");
+}
+
+void MainLayout::UpdatePlayerFocusStyles() {
+    const bool showContent = (this->currentTab == Tab::Player) && this->playbackActive;
+    this->prevBtnBg->SetColor(this->playerFocus == PlayerFocus::Prev ? CLR_FOCUS_DARK : CLR_BTN);
+    this->playBtnBg->SetColor(this->playerFocus == PlayerFocus::PlayPause ? CLR_FOCUS_DARK : CLR_BTN);
+    this->nextBtnBg->SetColor(this->playerFocus == PlayerFocus::Next ? CLR_FOCUS_DARK : CLR_BTN);
+    this->prevBtnOutline->SetVisible(showContent && this->playerFocus == PlayerFocus::Prev);
+    this->playBtnOutline->SetVisible(showContent && this->playerFocus == PlayerFocus::PlayPause);
+    this->nextBtnOutline->SetVisible(showContent && this->playerFocus == PlayerFocus::Next);
+}
+
+void MainLayout::MovePlayerFocus(const int delta) {
+    if (delta == 0) return;
+    int index = 1;
+    if (this->playerFocus == PlayerFocus::Prev) index = 0;
+    else if (this->playerFocus == PlayerFocus::Next) index = 2;
+    index = (index + delta + 3) % 3;
+    this->playerFocus = (index == 0) ? PlayerFocus::Prev : (index == 1 ? PlayerFocus::PlayPause : PlayerFocus::Next);
+    this->UpdatePlayerFocusStyles();
+}
+
+void MainLayout::UpdateSettingsFocusStyles() {
+    const bool showContent = (this->currentTab == Tab::Settings);
+    this->settingsSelectBg->SetColor(this->settingsFocus == SettingsFocus::Language ? CLR_FOCUS_DARK : CLR_TAB_SEL);
+    this->settingsApplyBg->SetColor(CLR_BTN);
+    this->settingsSelectOutline->SetVisible(showContent && this->settingsFocus == SettingsFocus::Language);
+    this->settingsApplyOutline->SetVisible(showContent && this->settingsFocus == SettingsFocus::Apply);
+}
+
+void MainLayout::MoveSettingsFocus(const int delta) {
+    if (delta == 0) return;
+    const int index = (this->settingsFocus == SettingsFocus::Language) ? 0 : 1;
+    const int next = (index + delta + 2) % 2;
+    this->settingsFocus = (next == 0) ? SettingsFocus::Language : SettingsFocus::Apply;
+    this->UpdateSettingsFocusStyles();
+}
+
+std::string MainLayout::GetSelectedLanguageCode() const {
+    return SETTINGS_LANG_CODES[this->settingsLangIndex];
+}
+
+void MainLayout::SetSettingsFeedback(const std::string& text) {
+    this->settingsSavedText->SetText(text);
 }
 
 void MainLayout::SetRightPanelVisible(bool visible) {
@@ -609,15 +791,20 @@ void MainLayout::SetRightPanelVisible(bool visible) {
 void MainLayout::SwitchToTab(Tab tab) {
     this->currentTab = tab;
     const bool isPlayer = (tab == Tab::Player);
+    const bool isUser = (tab == Tab::User);
+    const bool isSettings = (tab == Tab::Settings);
 
     this->tab1Bg->SetColor(isPlayer ? CLR_TAB_SEL : CLR_SIDEBAR);
-    this->tab2Bg->SetColor(isPlayer ? CLR_SIDEBAR : CLR_TAB_SEL);
+    this->tab2Bg->SetColor(isUser ? CLR_TAB_SEL : CLR_SIDEBAR);
+    this->tab3Bg->SetColor(isSettings ? CLR_TAB_SEL : CLR_SIDEBAR);
     this->tab1Text->SetColor(isPlayer ? CLR_WHITE : CLR_GRAY);
-    this->tab2Text->SetColor(isPlayer ? CLR_GRAY : CLR_WHITE);
-    this->tabIndicator->SetY(isPlayer ? TAB1_Y : TAB2_Y);
+    this->tab2Text->SetColor(isUser ? CLR_WHITE : CLR_GRAY);
+    this->tab3Text->SetColor(isSettings ? CLR_WHITE : CLR_GRAY);
+    this->tabIndicator->SetY(isPlayer ? TAB1_Y : (isUser ? TAB2_Y : TAB3_Y));
 
     this->SetPlayerTabVisible(isPlayer);
-    this->SetUserTabVisible(!isPlayer);
+    this->SetUserTabVisible(isUser);
+    this->SetSettingsTabVisible(isSettings);
     this->SetRightPanelVisible(isPlayer && this->playbackActive);
 }
 
@@ -670,12 +857,23 @@ void MainLayout::SetRefreshCallback(std::function<void()> fn) {
     this->lastRefresh = time(nullptr);
 }
 
+void MainLayout::TriggerRefreshNow() {
+    this->lastRefresh = 0;
+}
+
 void MainLayout::SetLoadingSpinner(bool visible) {
     this->spinnerVisible = visible;
     if (!visible) this->spinnerAngle = 0.0f;
     const bool canShow = (this->currentTab == Tab::Player) && this->playbackActive;
     this->spinnerBackdrop->SetVisible(visible && canShow);
     this->spinnerImg->SetVisible(visible && canShow);
+}
+
+void MainLayout::SetBlockingLoading(bool visible) {
+    this->blockingOverlayVisible = visible;
+    if (!visible) this->spinnerAngle = 0.0f;
+    this->blockingOverlayBg->SetVisible(visible);
+    this->blockingOverlaySpinner->SetVisible(visible);
 }
 
 // --- Content setters ---
@@ -709,11 +907,50 @@ void MainApplication::OnLoad() {
             return;
         }
 
-        // L / R → sidebar tab switching
+        // L / R → sidebar tab cycling
         if (keys_down & HidNpadButton_L)
-            this->mainLayout->SwitchToTab(Tab::Player);
+            this->mainLayout->SwitchToTab(PrevTab(this->mainLayout->GetCurrentTab()));
         if (keys_down & HidNpadButton_R)
-            this->mainLayout->SwitchToTab(Tab::User);
+            this->mainLayout->SwitchToTab(NextTab(this->mainLayout->GetCurrentTab()));
+
+        // Settings focus navigation
+        if (this->mainLayout->GetCurrentTab() == Tab::Settings) {
+            if (keys_down & HidNpadButton_Up)
+                this->mainLayout->MoveSettingsFocus(-1);
+            if (keys_down & HidNpadButton_Down)
+                this->mainLayout->MoveSettingsFocus(1);
+
+            if (this->mainLayout->GetSettingsFocus() == SettingsFocus::Language) {
+                if (keys_down & HidNpadButton_Left)
+                    this->mainLayout->CycleSettingsLanguage(-1);
+                if (keys_down & HidNpadButton_Right)
+                    this->mainLayout->CycleSettingsLanguage(1);
+            }
+
+            if (keys_down & HidNpadButton_A) {
+                if (this->mainLayout->GetSettingsFocus() == SettingsFocus::Apply)
+                    this->ApplyLanguageFromSettings();
+                else
+                    this->mainLayout->SetSettingsFeedback(lang::get("settings.press_apply"));
+            }
+        }
+
+        // Player focus navigation and action
+        if (this->mainLayout->GetCurrentTab() == Tab::Player && !this->actionsBlocked) {
+            if (keys_down & HidNpadButton_Left)
+                this->mainLayout->MovePlayerFocus(-1);
+            if (keys_down & HidNpadButton_Right)
+                this->mainLayout->MovePlayerFocus(1);
+            if (keys_down & HidNpadButton_A) {
+                if (this->mainLayout->GetPlayerFocus() == PlayerFocus::Prev)
+                    this->OnPrev();
+                else if (this->mainLayout->GetPlayerFocus() == PlayerFocus::PlayPause)
+                    this->OnPlayPause();
+                else
+                    this->OnNext();
+            }
+        }
+
         // ZL / ZR → right panel tab switching (only in Player tab with active playback)
         if (this->mainLayout->GetCurrentTab() == Tab::Player && this->mainLayout->GetPlaybackActive()) {
             if (keys_down & HidNpadButton_ZL)
@@ -721,28 +958,12 @@ void MainApplication::OnLoad() {
             if (keys_down & HidNpadButton_ZR)
                 this->mainLayout->SwitchRightTab(RightTab::Queue);
         }
-
-        // Player controls (only in Player tab, blocked while a skip is in flight)
-        if (this->mainLayout->GetCurrentTab() == Tab::Player && !this->actionsBlocked) {
-            if (keys_down & HidNpadButton_A)
-                this->OnPlayPause();
-            if (keys_down & HidNpadButton_Left)
-                this->OnPrev();
-            if (keys_down & HidNpadButton_Right)
-                this->OnNext();
-        }
     });
 
     const auto saved = TokenStorage::loadTokens();
     if (saved.valid) {
         this->currentTokens = saved;
-        this->mainLayout = MainLayout::New();
-        this->mainLayoutActive = true;
-        this->mainLayout->SetStatus(lang::get("main.session_started"));
-        this->LoadLayout(this->mainLayout);
-        this->FetchUserProfile();
-        this->FetchAndShowPlayerState();
-        this->mainLayout->SetRefreshCallback([this]() { this->FetchAndShowPlayerState(); });
+        this->ActivateMainLayout(false, false, false);
         return;
     }
 
@@ -824,12 +1045,68 @@ void MainApplication::OnLoginSuccess(const spotify::Tokens& tokens) {
     }
     this->currentTokens = tokens;
     TokenStorage::saveTokens(tokens);
+    this->ActivateMainLayout(false, false, false);
+    debugLog("APP: ready");
+}
+
+void MainApplication::ResetMainLayoutCaches() {
+    this->currentTrackName.clear();
+    this->blockedFromTrackName.clear();
+    this->currentAlbumUrl.clear();
+    this->currentAlbumId.clear();
+    this->currentArtistId.clear();
+    for (std::string& queueUrl : this->currentQueueUrls) {
+        queueUrl.clear();
+    }
+    this->actionsBlocked = false;
+}
+
+void MainApplication::ActivateMainLayout(const bool showSettingsTab, const bool showBlockingLoading, const bool deferInitialFetch) {
+    this->mainLayout = MainLayout::New();
     this->mainLayoutActive = true;
     this->userProfileFetched = false;
+    this->pendingInitialMainFetch = deferInitialFetch;
+    this->pendingInitialMainFetchAfter = deferInitialFetch ? (time(nullptr) + 1) : 0;
+    this->ResetMainLayoutCaches();
     this->mainLayout->SetStatus(lang::get("main.session_started"));
     this->LoadLayout(this->mainLayout);
+    if (showSettingsTab) {
+        this->mainLayout->SwitchToTab(Tab::Settings);
+    }
+    if (showBlockingLoading) {
+        this->mainLayout->SetBlockingLoading(true);
+    }
+
+    this->mainLayout->SetRefreshCallback([this]() {
+        if (this->pendingInitialMainFetch) {
+            if (time(nullptr) < this->pendingInitialMainFetchAfter) return;
+            this->pendingInitialMainFetch = false;
+            this->FetchUserProfile();
+            this->FetchAndShowPlayerState();
+            this->mainLayout->SetBlockingLoading(false);
+            return;
+        }
+        this->FetchAndShowPlayerState();
+    });
+
+    if (deferInitialFetch) {
+        this->mainLayout->TriggerRefreshNow();
+        return;
+    }
+
     this->FetchUserProfile();
     this->FetchAndShowPlayerState();
-    this->mainLayout->SetRefreshCallback([this]() { this->FetchAndShowPlayerState(); });
-    debugLog("APP: ready");
+}
+
+void MainApplication::ApplyLanguageFromSettings() {
+    const std::string code = this->mainLayout->GetSelectedLanguageCode();
+    if (code == lang::currentLanguage) {
+        this->mainLayout->SetSettingsFeedback(lang::get("settings.no_change"));
+        return;
+    }
+
+    this->mainLayout->SetBlockingLoading(true);
+    lang::setLanguage(code);
+    this->ActivateMainLayout(true, true, true);
+    this->mainLayout->SetSettingsFeedback(lang::get("settings.saved"));
 }

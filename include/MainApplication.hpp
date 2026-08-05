@@ -7,8 +7,10 @@
 #include <ctime>
 #include <string>
 
-enum class Tab      { Player, User };
+enum class Tab      { Player, User, Settings };
 enum class RightTab  { Artist, Queue };
+enum class PlayerFocus { Prev, PlayPause, Next };
+enum class SettingsFocus { Language, Apply };
 
 class MainLayout : public pu::ui::Layout {
 private:
@@ -21,6 +23,8 @@ private:
     pu::ui::elm::TextBlock::Ref tab1Text;
     pu::ui::elm::Rectangle::Ref tab2Bg;
     pu::ui::elm::TextBlock::Ref tab2Text;
+    pu::ui::elm::Rectangle::Ref tab3Bg;
+    pu::ui::elm::TextBlock::Ref tab3Text;
     pu::ui::elm::Image::Ref     lShoulderIcon;
     pu::ui::elm::Image::Ref     rShoulderIcon;
     pu::ui::elm::TextBlock::Ref statusText;
@@ -38,9 +42,9 @@ private:
     pu::ui::elm::Image::Ref     pauseBtnImg;
     pu::ui::elm::Rectangle::Ref nextBtnBg;
     pu::ui::elm::Image::Ref     nextBtnImg;
-    pu::ui::elm::Image::Ref     prevHintIcon;
-    pu::ui::elm::Image::Ref     playPauseHintIcon;
-    pu::ui::elm::Image::Ref     nextHintIcon;
+    pu::ui::elm::Rectangle::Ref prevBtnOutline;
+    pu::ui::elm::Rectangle::Ref playBtnOutline;
+    pu::ui::elm::Rectangle::Ref nextBtnOutline;
     bool isPlayingState = false;
 
     // User tab
@@ -51,6 +55,23 @@ private:
     pu::ui::elm::TextBlock::Ref userEmailText;
     pu::ui::elm::TextBlock::Ref userPlanText;
     pu::ui::elm::TextBlock::Ref userFollowersText;
+
+    // Settings tab
+    pu::ui::elm::TextBlock::Ref settingsTitleText;
+    pu::ui::elm::TextBlock::Ref settingsLanguageLabel;
+    pu::ui::elm::Rectangle::Ref settingsSelectOutline;
+    pu::ui::elm::Rectangle::Ref settingsSelectBg;
+    pu::ui::elm::TextBlock::Ref settingsSelectText;
+    pu::ui::elm::Rectangle::Ref settingsApplyOutline;
+    pu::ui::elm::Rectangle::Ref settingsApplyBg;
+    pu::ui::elm::TextBlock::Ref settingsApplyText;
+    pu::ui::elm::TextBlock::Ref settingsHelpText;
+    pu::ui::elm::Image::Ref     settingsHelpLeftIcon;
+    pu::ui::elm::Image::Ref     settingsHelpRightIcon;
+    pu::ui::elm::TextBlock::Ref settingsSavedText;
+    int settingsLangIndex = 0;
+    PlayerFocus playerFocus = PlayerFocus::PlayPause;
+    SettingsFocus settingsFocus = SettingsFocus::Language;
 
     // Right panel
     pu::ui::elm::Rectangle::Ref rightVertSep;
@@ -103,6 +124,11 @@ private:
     float spinnerAngle = 0.0f;
     bool spinnerVisible = false;
 
+    // Full-screen blocking loading overlay (used for language apply and other blocking flows)
+    pu::ui::elm::Rectangle::Ref blockingOverlayBg;
+    pu::ui::elm::Image::Ref blockingOverlaySpinner;
+    bool blockingOverlayVisible = false;
+
     // State
     Tab currentTab;
     RightTab currentRightTab;
@@ -113,7 +139,11 @@ private:
     void OnRenderCallback();
     void SetPlayerTabVisible(bool visible);
     void SetUserTabVisible(bool visible);
+    void SetSettingsTabVisible(bool visible);
     void SetRightPanelVisible(bool visible);
+    void UpdateSettingsSelectText();
+    void UpdatePlayerFocusStyles();
+    void UpdateSettingsFocusStyles();
 
 public:
     MainLayout();
@@ -137,10 +167,19 @@ public:
     void SwitchToTab(Tab tab);
     Tab GetCurrentTab() const { return this->currentTab; }
     bool GetPlaybackActive() const { return this->playbackActive; }
+    void MovePlayerFocus(int delta);
+    PlayerFocus GetPlayerFocus() const { return this->playerFocus; }
+    void CycleSettingsLanguage(int delta);
+    void MoveSettingsFocus(int delta);
+    SettingsFocus GetSettingsFocus() const { return this->settingsFocus; }
+    std::string GetSelectedLanguageCode() const;
+    void SetSettingsFeedback(const std::string& text);
     void SwitchRightTab(RightTab tab);
     RightTab GetCurrentRightTab() const { return this->currentRightTab; }
     void SetRefreshCallback(std::function<void()> fn);
+    void TriggerRefreshNow();
     void SetLoadingSpinner(bool visible);
+    void SetBlockingLoading(bool visible);
 };
 
 class MainApplication : public pu::ui::Application {
@@ -160,6 +199,8 @@ private:
     std::string currentArtistId;
     bool userProfileFetched = false;
     std::string currentQueueUrls[5];
+    bool pendingInitialMainFetch = false;
+    time_t pendingInitialMainFetchAfter = 0;
 
     void FetchAndShowPlayerState();
     void FetchUserProfile();
@@ -167,9 +208,12 @@ private:
     void OnPrev();
     void OnNext();
     void OnLanguageSelected(const std::string& code);
+    void ApplyLanguageFromSettings();
     bool StartLoginFlow();
     void OnLogout();
     void OnLoginBack();
+    void ActivateMainLayout(bool showSettingsTab, bool showBlockingLoading, bool deferInitialFetch);
+    void ResetMainLayoutCaches();
 
 public:
     using Application::Application;
