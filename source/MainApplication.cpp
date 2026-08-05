@@ -407,6 +407,28 @@ MainLayout::MainLayout() : Layout::Layout(), currentTab(Tab::Player), currentRig
     this->settingsSavedText->SetVisible(false);
     this->Add(this->settingsSavedText);
 
+    {
+        char infoBuf[128];
+        snprintf(infoBuf, sizeof(infoBuf), lang::get("settings.app_info_format").c_str(),
+            lang::get("login.title").c_str(), APP_VERSION_STR, APP_AUTHOR_STR);
+        this->settingsAppInfoText = pu::ui::elm::TextBlock::New(CONTENT_X + 120, SCREEN_H - 100, infoBuf);
+    }
+    this->settingsAppInfoText->SetColor(CLR_HINT);
+    this->settingsAppInfoText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
+    this->settingsAppInfoText->SetVisible(false);
+    this->Add(this->settingsAppInfoText);
+
+    {
+        char attrBuf[192];
+        snprintf(attrBuf, sizeof(attrBuf), lang::get("settings.icon_attribution_format").c_str(),
+            "Switch Button Icons and Controls - Zacksly", "CC BY 3.0");
+        this->settingsAttributionText = pu::ui::elm::TextBlock::New(CONTENT_X + 120, SCREEN_H - 68, attrBuf);
+    }
+    this->settingsAttributionText->SetColor(CLR_HINT);
+    this->settingsAttributionText->SetFont(pu::ui::GetDefaultFont(pu::ui::DefaultFontSize::Small));
+    this->settingsAttributionText->SetVisible(false);
+    this->Add(this->settingsAttributionText);
+
     this->settingsLangIndex = (lang::currentLanguage == "es") ? 0 : 1;
     this->playerFocus = PlayerFocus::PlayPause;
     this->settingsFocus = SettingsFocus::Language;
@@ -706,6 +728,8 @@ void MainLayout::SetSettingsTabVisible(bool visible) {
     this->settingsHelpLeftIcon->SetVisible(visible);
     this->settingsHelpRightIcon->SetVisible(visible);
     this->settingsSavedText->SetVisible(visible);
+    this->settingsAppInfoText->SetVisible(visible);
+    this->settingsAttributionText->SetVisible(visible);
 }
 
 void MainLayout::UpdateSettingsSelectText() {

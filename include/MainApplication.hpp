@@ -72,6 +72,8 @@ private:
     pu::ui::elm::Image::Ref     settingsHelpLeftIcon;
     pu::ui::elm::Image::Ref     settingsHelpRightIcon;
     pu::ui::elm::TextBlock::Ref settingsSavedText;
+    pu::ui::elm::TextBlock::Ref settingsAppInfoText;
+    pu::ui::elm::TextBlock::Ref settingsAttributionText;
     int settingsLangIndex = 0;
     PlayerFocus playerFocus = PlayerFocus::PlayPause;
     SettingsFocus settingsFocus = SettingsFocus::Language;

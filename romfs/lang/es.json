@@ -48,6 +48,8 @@
     "settings.press_apply": "Mueve el foco a Guardar y pulsa A.",
     "settings.saved": "Cambios aplicados.",
     "settings.no_change": "Ese idioma ya esta seleccionado.",
+    "settings.app_info_format": "%s v%s - Creado por %s",
+    "settings.icon_attribution_format": "Iconos: %s (%s)",
 
     "webauth.title": "Spotify Switch",
     "webauth.success_heading": "Autorizacion completada",

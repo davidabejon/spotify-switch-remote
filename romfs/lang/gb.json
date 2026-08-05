@@ -48,6 +48,8 @@
     "settings.press_apply": "Move focus to Save and press A.",
     "settings.saved": "Applied changes.",
     "settings.no_change": "That language is already selected.",
+    "settings.app_info_format": "%s v%s - Created by %s",
+    "settings.icon_attribution_format": "Icons: %s (%s)",
 
     "webauth.title": "Spotify Switch",
     "webauth.success_heading": "Authorization completed",
