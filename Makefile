@@ -56,7 +56,7 @@ ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 CFLAGS	:=	-g -Wall -Werror -O2 -ffunction-sections \
 			$(ARCH) $(DEFINES)
 
-CFLAGS	+=	$(INCLUDE) -D__SWITCH__
+CFLAGS	+=	$(INCLUDE) -D__SWITCH__ -DAPP_VERSION_STR='"$(APP_VERSION)"' -DAPP_AUTHOR_STR='"$(APP_AUTHOR)"'
 
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions
 
