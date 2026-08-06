@@ -6,6 +6,11 @@
 #include <functional>
 #include <ctime>
 #include <string>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
+#include <atomic>
 
 enum class Tab      { Player, User, Settings };
 enum class RightTab  { Artist, Queue };
@@ -221,6 +226,92 @@ public:
 
 class MainApplication : public pu::ui::Application {
 private:
+    // ---- Background networking (all Spotify HTTP calls run off the main/render thread;
+    // see WorkerLoop) ----
+    enum class JobKind { Poll, SkipPrev, SkipNext, PlayPause, UserProfile };
+
+    // Inputs snapshotted on the main thread when a job is dispatched, so the worker
+    // thread never touches MainApplication's mutable state directly.
+    struct PollJob {
+        JobKind kind = JobKind::Poll;
+        u64 generation = 0;
+        spotify::Tokens tokens;
+        std::string currentAlbumUrl;
+        std::string currentAlbumId;
+        std::string currentArtistId;
+        std::string currentQueueUrls[5];
+        bool playAction = false; // JobKind::PlayPause: true = call play(), false = call pause()
+    };
+
+    // Outputs produced entirely from network data on the worker thread — no pu::ui/SDL
+    // calls here, since those aren't safe off the main thread. The main thread applies
+    // these via Apply*Result().
+    struct PollResult {
+        JobKind kind = JobKind::Poll;
+        u64 generation = 0;
+
+        bool didPreemptiveRefresh = false;
+        spotify::Tokens preemptiveRefreshResult;
+
+        bool didGetPlayerState = false;
+        spotify::PlayerState playerState;
+
+        bool didExpiredRetryRefresh = false;
+        spotify::Tokens expiredRetryRefreshResult;
+        bool didExpiredRetryGetPlayerState = false;
+        spotify::PlayerState expiredRetryPlayerState;
+
+        std::string newAlbumImageUrl; // non-empty only when it changed vs. the job's snapshot
+        std::string albumArtBytes;
+
+        std::string newAlbumId;
+        spotify::AlbumInfo albumInfo;
+
+        std::string newArtistId;
+        spotify::ArtistInfo artistInfo;
+        std::string artistImgBytes;
+
+        spotify::QueueInfo queueInfo;
+        std::string newQueueUrl[5];
+        std::string queueImgBytes[5];
+
+        spotify::UserProfile userProfile;
+        std::string userAvatarBytes;
+        std::string userFlagBytes;
+    };
+
+    std::thread workerThread;
+    std::mutex jobMutex;
+    std::condition_variable jobCv;
+    std::queue<PollJob> jobQueue;
+    bool workerStop = false;
+    std::atomic<int> jobsOutstanding{0};
+
+    std::mutex resultMutex;
+    std::queue<PollResult> resultQueue;
+
+    // Bumped whenever the session/layout is torn down and rebuilt (login, logout,
+    // language change) so results from a since-invalidated job are discarded instead
+    // of being applied onto unrelated state.
+    u64 currentGeneration = 0;
+    bool userProfileJobInFlight = false;
+
+    // Set to the number of results still awaited (e.g. 2 for user-profile + poll)
+    // whenever the blocking overlay must stay up until specific async jobs land;
+    // ApplyPendingResults hides the overlay once this reaches zero.
+    int pendingBlockingLoadingJobs = 0;
+
+    void WorkerLoop();
+    void RunJob(const PollJob& job, PollResult& out);
+    void RunPollJob(const PollJob& job, PollResult& out);
+    void RunPlayPauseJob(const PollJob& job, PollResult& out);
+    void RunUserProfileJob(const PollJob& job, PollResult& out);
+    void EnqueueJob(PollJob job);
+    void DispatchPollJob(JobKind kind);
+    void ApplyPendingResults();
+    void ApplyPollResult(const PollResult& result);
+    void ApplyUserProfileResult(const PollResult& result);
+
     MainLayout::Ref mainLayout;
     pu::ui::Layout::Ref languageLayout;
     pu::ui::Layout::Ref loginLayout;
@@ -259,6 +350,7 @@ private:
 public:
     using Application::Application;
     PU_SMART_CTOR(MainApplication)
+    ~MainApplication() override;
 
     void OnLoad() override;
     void OnLoginSuccess(const spotify::Tokens& tokens);
