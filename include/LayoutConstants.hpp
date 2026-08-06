@@ -40,6 +40,7 @@ static constexpr s32 CTRL_ICON_LG  = 46;                       // icon size in p
 static constexpr s32 TAB_H      = 64;
 static constexpr s32 TAB1_Y     = 280;
 static constexpr s32 TAB2_Y     = TAB1_Y + TAB_H + 4;        // 348
+static constexpr s32 TAB3_Y     = TAB2_Y + TAB_H + 4;        // 416
 
 // Right panel — same margin on the right as the player content has from the sidebar (165 px)
 static constexpr s32 RIGHT_MARGIN = ART_X - SIDEBAR_W;                  // 165
