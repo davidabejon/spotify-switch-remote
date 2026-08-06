@@ -1050,7 +1050,125 @@ void MainLayout::SetDevice(const std::string& deviceName) {
 // MainApplication
 // =============================================================================
 
+// --- Background job worker ---
+//
+// All Spotify HTTP calls (curl_easy_perform, up to a 15s timeout each — see
+// SpotifyAuth.cpp) used to run inline on the render/input thread, freezing animations
+// and input for the duration of every poll. They now run on this single background
+// thread; the main thread only ever touches pu::ui/SDL objects, applying already-fetched
+// results once per frame via ApplyPendingResults.
+
+MainApplication::~MainApplication() {
+    {
+        std::lock_guard<std::mutex> lock(this->jobMutex);
+        this->workerStop = true;
+    }
+    this->jobCv.notify_all();
+    if (this->workerThread.joinable()) this->workerThread.join();
+}
+
+void MainApplication::WorkerLoop() {
+    for (;;) {
+        PollJob job;
+        {
+            std::unique_lock<std::mutex> lock(this->jobMutex);
+            this->jobCv.wait(lock, [this]() { return this->workerStop || !this->jobQueue.empty(); });
+            if (this->workerStop && this->jobQueue.empty()) return;
+            job = std::move(this->jobQueue.front());
+            this->jobQueue.pop();
+        }
+
+        PollResult result;
+        result.kind = job.kind;
+        result.generation = job.generation;
+        this->RunJob(job, result);
+        --this->jobsOutstanding;
+
+        std::lock_guard<std::mutex> lock(this->resultMutex);
+        this->resultQueue.push(std::move(result));
+    }
+}
+
+void MainApplication::RunJob(const PollJob& job, PollResult& out) {
+    switch (job.kind) {
+        case JobKind::Poll:
+        case JobKind::SkipPrev:
+        case JobKind::SkipNext:
+            this->RunPollJob(job, out);
+            break;
+        case JobKind::PlayPause:
+            this->RunPlayPauseJob(job, out);
+            break;
+        case JobKind::UserProfile:
+            this->RunUserProfileJob(job, out);
+            break;
+    }
+}
+
+void MainApplication::EnqueueJob(PollJob job) {
+    job.generation = this->currentGeneration;
+    {
+        std::lock_guard<std::mutex> lock(this->jobMutex);
+        this->jobQueue.push(std::move(job));
+    }
+    ++this->jobsOutstanding;
+    this->jobCv.notify_one();
+}
+
+void MainApplication::DispatchPollJob(const JobKind kind) {
+    PollJob job;
+    job.kind = kind;
+    job.tokens = this->currentTokens;
+    job.currentAlbumUrl = this->currentAlbumUrl;
+    job.currentAlbumId = this->currentAlbumId;
+    job.currentArtistId = this->currentArtistId;
+    for (int i = 0; i < 5; ++i) job.currentQueueUrls[i] = this->currentQueueUrls[i];
+    this->EnqueueJob(std::move(job));
+}
+
+// Runs every frame (Application-level render callback) regardless of the loaded
+// layout, so results land as soon as the worker produces them rather than waiting
+// for the next 5s poll tick.
+void MainApplication::ApplyPendingResults() {
+    for (;;) {
+        PollResult result;
+        {
+            std::lock_guard<std::mutex> lock(this->resultMutex);
+            if (this->resultQueue.empty()) return;
+            result = std::move(this->resultQueue.front());
+            this->resultQueue.pop();
+        }
+
+        // Discard results left over from a session that was already torn down
+        // (logout, re-login, language change) by the time the worker finished.
+        if (result.generation != this->currentGeneration) continue;
+
+        switch (result.kind) {
+            case JobKind::Poll:
+            case JobKind::SkipPrev:
+            case JobKind::SkipNext:
+                this->ApplyPollResult(result);
+                break;
+            case JobKind::PlayPause:
+                break; // fire-and-forget — the caller already applied an optimistic UI update
+            case JobKind::UserProfile:
+                this->ApplyUserProfileResult(result);
+                break;
+        }
+
+        if ((result.kind == JobKind::Poll || result.kind == JobKind::UserProfile) &&
+                this->pendingBlockingLoadingJobs > 0) {
+            if (--this->pendingBlockingLoadingJobs == 0) {
+                this->mainLayout->SetBlockingLoading(false);
+            }
+        }
+    }
+}
+
 void MainApplication::OnLoad() {
+    this->workerThread = std::thread(&MainApplication::WorkerLoop, this);
+    this->AddRenderCallback([this]() { this->ApplyPendingResults(); });
+
     this->SetOnInput([&](const u64 keys_down, const u64 keys_up, const u64 keys_held,
                          const pu::ui::TouchPoint touch_pos) {
         (void)keys_up;
@@ -1239,6 +1357,10 @@ void MainApplication::OnLogout() {
     // leaves the user logged in with a "connect wifi" hint instead of stranding them.
     if (!this->StartLoginFlow()) return;
 
+    // Invalidates any in-flight background job's result so it's dropped instead of
+    // being applied onto the session we're about to tear down.
+    ++this->currentGeneration;
+
     TokenStorage::clearTokens();
     this->currentTokens = spotify::Tokens();
     this->mainLayoutActive = false;
@@ -1270,6 +1392,11 @@ void MainApplication::ResetMainLayoutCaches() {
 }
 
 void MainApplication::ActivateMainLayout(const bool showSettingsTab, const bool showBlockingLoading, const bool deferInitialFetch) {
+    // Invalidates any in-flight background job's result so it's dropped instead of
+    // being applied onto the layout/caches this call is about to replace.
+    ++this->currentGeneration;
+    this->userProfileJobInFlight = false;
+
     this->mainLayout = MainLayout::New();
     this->mainLayoutActive = true;
     this->userProfileFetched = false;
@@ -1289,9 +1416,11 @@ void MainApplication::ActivateMainLayout(const bool showSettingsTab, const bool 
         if (this->pendingInitialMainFetch) {
             if (time(nullptr) < this->pendingInitialMainFetchAfter) return;
             this->pendingInitialMainFetch = false;
+            // Both jobs are dispatched (not merely requested) so the blocking overlay is
+            // guaranteed the two results it's waiting for — see ApplyPendingResults.
+            this->pendingBlockingLoadingJobs = 2;
             this->FetchUserProfile();
-            this->FetchAndShowPlayerState();
-            this->mainLayout->SetBlockingLoading(false);
+            this->DispatchPollJob(JobKind::Poll);
             return;
         }
         this->FetchAndShowPlayerState();

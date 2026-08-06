@@ -58,66 +58,79 @@ void MainLayout::SetUserAvatar(pu::sdl2::TextureHandle::Ref handle) {
 }
 
 // --- MainApplication user methods ---
-
-void MainApplication::FetchUserProfile() {
-    if (this->userProfileFetched) return;
+//
+// Runs on the background worker thread — network only, no pu::ui/SDL calls (those
+// happen in ApplyUserProfileResult, back on the main thread).
+void MainApplication::RunUserProfileJob(const PollJob& job, PollResult& out) {
     debugLog("USER: fetching user profile");
-    const auto profile = spotify::getUserProfile(this->currentTokens.accessToken);
-    if (!profile.valid) {
+    out.userProfile = spotify::getUserProfile(job.tokens.accessToken);
+    if (!out.userProfile.valid) {
         debugLog("USER: getUserProfile returned invalid");
         return;
     }
     debugLogf("USER: profile ok — name=%s email=%s country=%s product=%s followers=%ld imageUrl=%s",
-        profile.displayName.c_str(),
-        profile.email.c_str(),
-        profile.country.c_str(),
-        profile.product.c_str(),
-        profile.followers,
-        profile.imageUrl.c_str());
+        out.userProfile.displayName.c_str(),
+        out.userProfile.email.c_str(),
+        out.userProfile.country.c_str(),
+        out.userProfile.product.c_str(),
+        out.userProfile.followers,
+        out.userProfile.imageUrl.c_str());
 
-    this->userProfileFetched = true;
-    this->mainLayout->SetUserProfile(profile);
-
-    if (profile.imageUrl.empty()) {
+    if (out.userProfile.imageUrl.empty()) {
         debugLog("USER: no avatar URL — skipping avatar download");
     } else {
-        debugLogf("USER: downloading avatar from %s", profile.imageUrl.c_str());
-        const auto imgData = spotify::downloadAlbumArt(profile.imageUrl);
-        if (imgData.empty()) {
-            debugLog("USER: avatar download failed (empty data)");
-        } else {
-            debugLogf("USER: avatar download ok (%zu bytes)", imgData.size());
-            auto* rawTex = pu::ui::render::LoadImageFromBuffer(
-                static_cast<const void*>(imgData.data()), imgData.size());
-            if (rawTex) {
-                this->mainLayout->SetUserAvatar(pu::sdl2::TextureHandle::New(rawTex));
-                debugLog("USER: avatar texture loaded");
-            } else {
-                debugLog("USER: LoadImageFromBuffer failed for avatar");
-            }
-        }
+        debugLogf("USER: downloading avatar from %s", out.userProfile.imageUrl.c_str());
+        out.userAvatarBytes = spotify::downloadAlbumArt(out.userProfile.imageUrl);
+        debugLog(out.userAvatarBytes.empty() ? "USER: avatar download failed (empty data)" : "USER: avatar download ok");
     }
 
-    if (profile.country.empty()) {
+    if (out.userProfile.country.empty()) {
         debugLog("USER: no country — skipping flag download");
     } else {
-        std::string cc = profile.country;
+        std::string cc = out.userProfile.country;
         for (char& c : cc) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
         const std::string flagUrl = "https://flagcdn.com/w80/" + cc + ".png";
         debugLogf("USER: downloading flag from %s", flagUrl.c_str());
-        const auto flagData = spotify::downloadAlbumArt(flagUrl);
-        if (flagData.empty()) {
-            debugLog("USER: flag download failed (empty data)");
+        out.userFlagBytes = spotify::downloadAlbumArt(flagUrl);
+        debugLog(out.userFlagBytes.empty() ? "USER: flag download failed (empty data)" : "USER: flag download ok");
+    }
+}
+
+void MainApplication::ApplyUserProfileResult(const PollResult& result) {
+    this->userProfileJobInFlight = false;
+    if (!result.userProfile.valid) return;
+
+    this->userProfileFetched = true;
+    this->mainLayout->SetUserProfile(result.userProfile);
+
+    if (!result.userAvatarBytes.empty()) {
+        auto* rawTex = pu::ui::render::LoadImageFromBuffer(
+            static_cast<const void*>(result.userAvatarBytes.data()), result.userAvatarBytes.size());
+        if (rawTex) {
+            this->mainLayout->SetUserAvatar(pu::sdl2::TextureHandle::New(rawTex));
+            debugLog("USER: avatar texture loaded");
         } else {
-            debugLogf("USER: flag download ok (%zu bytes)", flagData.size());
-            auto* rawTex = pu::ui::render::LoadImageFromBuffer(
-                static_cast<const void*>(flagData.data()), flagData.size());
-            if (rawTex) {
-                this->mainLayout->SetUserFlag(pu::sdl2::TextureHandle::New(rawTex));
-                debugLog("USER: flag texture loaded");
-            } else {
-                debugLog("USER: LoadImageFromBuffer failed for flag");
-            }
+            debugLog("USER: LoadImageFromBuffer failed for avatar");
         }
     }
+
+    if (!result.userFlagBytes.empty()) {
+        auto* rawTex = pu::ui::render::LoadImageFromBuffer(
+            static_cast<const void*>(result.userFlagBytes.data()), result.userFlagBytes.size());
+        if (rawTex) {
+            this->mainLayout->SetUserFlag(pu::sdl2::TextureHandle::New(rawTex));
+            debugLog("USER: flag texture loaded");
+        } else {
+            debugLog("USER: LoadImageFromBuffer failed for flag");
+        }
+    }
+}
+
+void MainApplication::FetchUserProfile() {
+    if (this->userProfileFetched || this->userProfileJobInFlight) return;
+    this->userProfileJobInFlight = true;
+    PollJob job;
+    job.kind = JobKind::UserProfile;
+    job.tokens = this->currentTokens;
+    this->EnqueueJob(std::move(job));
 }

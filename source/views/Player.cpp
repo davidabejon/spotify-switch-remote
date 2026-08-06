@@ -115,11 +115,92 @@ void MainLayout::SetQueueImage(int index, pu::sdl2::TextureHandle::Ref handle) {
 }
 
 // --- MainApplication player methods ---
+//
+// The actual Spotify HTTP calls run on the background worker thread (RunPollJob,
+// dispatched via DispatchPollJob) so a slow/laggy connection never blocks rendering
+// or input. ApplyPollResult applies the result on the main thread once it's ready —
+// its branching mirrors exactly what this code used to do inline.
 
 void MainApplication::FetchAndShowPlayerState() {
-    if (time(nullptr) + 60 >= this->currentTokens.expiresAt) {
+    // Skip this tick if a job (poll, skip, ...) is already in flight — the next
+    // periodic tick will try again. Prevents piling up redundant poll jobs.
+    if (this->jobsOutstanding.load() > 0) return;
+    this->DispatchPollJob(JobKind::Poll);
+}
+
+void MainApplication::RunPollJob(const PollJob& job, PollResult& out) {
+    spotify::Tokens tokens = job.tokens;
+
+    if (job.kind == JobKind::SkipPrev) spotify::skipPrevious(tokens.accessToken);
+    else if (job.kind == JobKind::SkipNext) spotify::skipNext(tokens.accessToken);
+
+    if (time(nullptr) + 60 >= tokens.expiresAt) {
         debugLog("APP: refreshing access token");
-        this->currentTokens = spotify::refreshAccessToken(this->currentTokens.refreshToken);
+        out.didPreemptiveRefresh = true;
+        out.preemptiveRefreshResult = spotify::refreshAccessToken(tokens.refreshToken);
+        tokens = out.preemptiveRefreshResult;
+    }
+    if (!tokens.valid) return;
+
+    out.didGetPlayerState = true;
+    out.playerState = spotify::getPlayerState(tokens.accessToken);
+
+    if (out.playerState.tokenExpired) {
+        debugLog("APP: 401 from /me/player — forcing token refresh");
+        out.didExpiredRetryRefresh = true;
+        out.expiredRetryRefreshResult = spotify::refreshAccessToken(tokens.refreshToken);
+        if (out.expiredRetryRefreshResult.valid) {
+            out.didExpiredRetryGetPlayerState = true;
+            out.expiredRetryPlayerState = spotify::getPlayerState(out.expiredRetryRefreshResult.accessToken);
+        }
+        return;
+    }
+
+    if (!out.playerState.valid) return;
+    const auto& player = out.playerState;
+
+    // Download album art only when the art URL changes
+    if (!player.albumImageUrl.empty() && player.albumImageUrl != job.currentAlbumUrl) {
+        out.newAlbumImageUrl = player.albumImageUrl;
+        out.albumArtBytes = spotify::downloadAlbumArt(player.albumImageUrl);
+    }
+
+    // Fetch album info only when the album ID changes (separate guard)
+    if (!player.albumId.empty() && player.albumId != job.currentAlbumId) {
+        out.newAlbumId = player.albumId;
+        out.albumInfo = spotify::getAlbumInfo(player.albumId, tokens.accessToken);
+    }
+
+    // Fetch artist info only when the artist changes
+    if (!player.artistId.empty() && player.artistId != job.currentArtistId) {
+        out.newArtistId = player.artistId;
+        out.artistInfo = spotify::getArtistInfo(player.artistId, tokens.accessToken);
+        if (out.artistInfo.valid && !out.artistInfo.imageUrl.empty()) {
+            out.artistImgBytes = spotify::downloadAlbumArt(out.artistInfo.imageUrl);
+        }
+    }
+
+    // Fetch queue every cycle (changes with each track skip)
+    out.queueInfo = spotify::getQueue(tokens.accessToken);
+    if (out.queueInfo.valid) {
+        for (int i = 0; i < out.queueInfo.trackCount; ++i) {
+            const auto& url = out.queueInfo.tracks[i].imageUrl;
+            if (!url.empty() && url != job.currentQueueUrls[i]) {
+                out.newQueueUrl[i] = url;
+                out.queueImgBytes[i] = spotify::downloadAlbumArt(url);
+            }
+        }
+    }
+}
+
+void MainApplication::RunPlayPauseJob(const PollJob& job, PollResult&) {
+    if (job.playAction) spotify::play(job.tokens.accessToken);
+    else spotify::pause(job.tokens.accessToken);
+}
+
+void MainApplication::ApplyPollResult(const PollResult& result) {
+    if (result.didPreemptiveRefresh) {
+        this->currentTokens = result.preemptiveRefreshResult;
         if (this->currentTokens.valid) TokenStorage::saveTokens(this->currentTokens);
     }
     if (!this->currentTokens.valid) {
@@ -129,17 +210,22 @@ void MainApplication::FetchAndShowPlayerState() {
         return;
     }
 
-    const auto player = spotify::getPlayerState(this->currentTokens.accessToken);
+    if (!result.didGetPlayerState) return; // tokens went invalid after the job was dispatched
 
-    if (player.tokenExpired) {
+    if (result.playerState.tokenExpired) {
         debugLog("APP: 401 from /me/player — forcing token refresh");
-        this->currentTokens = spotify::refreshAccessToken(this->currentTokens.refreshToken);
-        if (this->currentTokens.valid) {
+        if (result.didExpiredRetryRefresh && result.expiredRetryRefreshResult.valid) {
+            this->currentTokens = result.expiredRetryRefreshResult;
             TokenStorage::saveTokens(this->currentTokens);
-            // Retry once with the new token
-            const auto retried = spotify::getPlayerState(this->currentTokens.accessToken);
-            this->mainLayout->SetPlaybackActive(retried.valid);
-            if (!retried.valid) { this->isPlaying = false; this->actionsBlocked = false; this->mainLayout->SetLoadingSpinner(false); return; }
+            const auto& retried = result.expiredRetryPlayerState;
+            const bool retriedValid = result.didExpiredRetryGetPlayerState && retried.valid;
+            this->mainLayout->SetPlaybackActive(retriedValid);
+            if (!retriedValid) {
+                this->isPlaying = false;
+                this->actionsBlocked = false;
+                this->mainLayout->SetLoadingSpinner(false);
+                return;
+            }
             this->isPlaying = retried.isPlaying;
             this->currentTrackName = retried.trackName;
             this->mainLayout->SetTrack(retried.trackName, retried.artistName, retried.isPlaying);
@@ -157,6 +243,7 @@ void MainApplication::FetchAndShowPlayerState() {
         return;
     }
 
+    const auto& player = result.playerState;
     this->mainLayout->SetPlaybackActive(player.valid);
 
     if (!player.valid) {
@@ -172,13 +259,11 @@ void MainApplication::FetchAndShowPlayerState() {
     this->mainLayout->SetTrack(player.trackName, player.artistName, player.isPlaying);
     this->mainLayout->SetDevice(player.deviceName);
 
-    // Download album art only when the art URL changes
-    if (!player.albumImageUrl.empty() && player.albumImageUrl != this->currentAlbumUrl) {
-        this->currentAlbumUrl = player.albumImageUrl;
-        const auto artData = spotify::downloadAlbumArt(player.albumImageUrl);
-        if (!artData.empty()) {
+    if (!result.newAlbumImageUrl.empty()) {
+        this->currentAlbumUrl = result.newAlbumImageUrl;
+        if (!result.albumArtBytes.empty()) {
             auto* rawTex = pu::ui::render::LoadImageFromBuffer(
-                static_cast<const void*>(artData.data()), artData.size());
+                static_cast<const void*>(result.albumArtBytes.data()), result.albumArtBytes.size());
             if (rawTex) {
                 auto handle = pu::sdl2::TextureHandle::New(rawTex);
                 this->mainLayout->SetAlbumArt(handle);
@@ -187,50 +272,39 @@ void MainApplication::FetchAndShowPlayerState() {
         }
     }
 
-    // Fetch album info only when the album ID changes (separate guard)
-    if (!player.albumId.empty() && player.albumId != this->currentAlbumId) {
-        this->currentAlbumId = player.albumId;
-        const auto albumInfo = spotify::getAlbumInfo(player.albumId, this->currentTokens.accessToken);
-        if (albumInfo.valid)
-            this->mainLayout->SetAlbumInfo(albumInfo);
+    if (!result.newAlbumId.empty()) {
+        this->currentAlbumId = result.newAlbumId;
+        if (result.albumInfo.valid)
+            this->mainLayout->SetAlbumInfo(result.albumInfo);
     }
 
-    // Fetch artist info only when the artist changes
-    if (!player.artistId.empty() && player.artistId != this->currentArtistId) {
-        this->currentArtistId = player.artistId;
-        const auto info = spotify::getArtistInfo(player.artistId, this->currentTokens.accessToken);
-        if (info.valid) {
-            this->mainLayout->SetArtistInfo(info);
-            if (!info.imageUrl.empty()) {
-                const auto imgData = spotify::downloadAlbumArt(info.imageUrl);
-                if (!imgData.empty()) {
-                    auto* rawTex = pu::ui::render::LoadImageFromBuffer(
-                        static_cast<const void*>(imgData.data()), imgData.size());
-                    if (rawTex)
-                        this->mainLayout->SetArtistImage(pu::sdl2::TextureHandle::New(rawTex));
-                }
+    if (!result.newArtistId.empty()) {
+        this->currentArtistId = result.newArtistId;
+        if (result.artistInfo.valid) {
+            this->mainLayout->SetArtistInfo(result.artistInfo);
+            if (!result.artistImgBytes.empty()) {
+                auto* rawTex = pu::ui::render::LoadImageFromBuffer(
+                    static_cast<const void*>(result.artistImgBytes.data()), result.artistImgBytes.size());
+                if (rawTex)
+                    this->mainLayout->SetArtistImage(pu::sdl2::TextureHandle::New(rawTex));
             }
         }
     }
 
-    // Fetch queue every cycle (changes with each track skip)
-    const auto queueInfo = spotify::getQueue(this->currentTokens.accessToken);
-    if (queueInfo.valid) {
-        this->mainLayout->SetQueueInfo(queueInfo);
-        for (int i = 0; i < queueInfo.trackCount; ++i) {
-            const auto& url = queueInfo.tracks[i].imageUrl;
-            if (!url.empty() && url != this->currentQueueUrls[i]) {
-                this->currentQueueUrls[i] = url;
-                const auto imgData = spotify::downloadAlbumArt(url);
-                if (!imgData.empty()) {
-                    auto* rawTex = pu::ui::render::LoadImageFromBuffer(
-                        static_cast<const void*>(imgData.data()), imgData.size());
-                    if (rawTex)
-                        this->mainLayout->SetQueueImage(i, pu::sdl2::TextureHandle::New(rawTex));
-                }
+    if (result.queueInfo.valid) {
+        this->mainLayout->SetQueueInfo(result.queueInfo);
+        for (int i = 0; i < result.queueInfo.trackCount; ++i) {
+            if (result.newQueueUrl[i].empty()) continue;
+            this->currentQueueUrls[i] = result.newQueueUrl[i];
+            if (!result.queueImgBytes[i].empty()) {
+                auto* rawTex = pu::ui::render::LoadImageFromBuffer(
+                    static_cast<const void*>(result.queueImgBytes[i].data()), result.queueImgBytes[i].size());
+                if (rawTex)
+                    this->mainLayout->SetQueueImage(i, pu::sdl2::TextureHandle::New(rawTex));
             }
         }
     }
+
     if (!this->actionsBlocked || trackChanged) {
         this->actionsBlocked = false;
         this->mainLayout->SetLoadingSpinner(false);
@@ -238,11 +312,11 @@ void MainApplication::FetchAndShowPlayerState() {
 }
 
 void MainApplication::OnPlayPause() {
-    if (this->isPlaying) {
-        spotify::pause(this->currentTokens.accessToken);
-    } else {
-        spotify::play(this->currentTokens.accessToken);
-    }
+    PollJob job;
+    job.kind = JobKind::PlayPause;
+    job.tokens = this->currentTokens;
+    job.playAction = !this->isPlaying;
+    this->EnqueueJob(std::move(job));
     // Optimistic UI update — periodic refresh will confirm the real state
     this->isPlaying = !this->isPlaying;
     this->mainLayout->UpdatePlayButton(this->isPlaying);
@@ -252,19 +326,12 @@ void MainApplication::OnPrev() {
     this->blockedFromTrackName = this->currentTrackName;
     this->actionsBlocked = true;
     this->mainLayout->SetLoadingSpinner(true);
-    spotify::skipPrevious(this->currentTokens.accessToken);
-    // Brief wait then refresh so the new track info appears quickly
-    this->mainLayout->SetRefreshCallback(nullptr); // prevent double-refresh race
-    this->FetchAndShowPlayerState();
-    this->mainLayout->SetRefreshCallback([this]() { this->FetchAndShowPlayerState(); });
+    this->DispatchPollJob(JobKind::SkipPrev);
 }
 
 void MainApplication::OnNext() {
     this->blockedFromTrackName = this->currentTrackName;
     this->actionsBlocked = true;
     this->mainLayout->SetLoadingSpinner(true);
-    spotify::skipNext(this->currentTokens.accessToken);
-    this->mainLayout->SetRefreshCallback(nullptr);
-    this->FetchAndShowPlayerState();
-    this->mainLayout->SetRefreshCallback([this]() { this->FetchAndShowPlayerState(); });
+    this->DispatchPollJob(JobKind::SkipNext);
 }
