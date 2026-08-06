@@ -25,16 +25,6 @@ Built with [Plutonium](https://github.com/XorTroll/Plutonium) (SDL2) and the Spo
 - OAuth 2.0 PKCE login flow via QR code (no credentials stored in plaintext)
 - Auto token refresh in the background
 
-## Controls
-
-| Button | Action |
-|---|---|
-| **L / R** | Switch between Player and Favorites tabs |
-| **ZL / ZR** | Switch between Artist and Queue panels |
-| **A** | Play / Pause |
-| **← / →** | Previous / Next track |
-| **+** | Exit |
-
 ## Requirements
 
 - A Nintendo Switch running a CFW that supports homebrew (e.g. Atmosphere)
